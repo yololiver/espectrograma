@@ -5,7 +5,7 @@
 **Estudante:** Paulo Silva · 2100537  
 **Orientador:** Pedro Pestana  
 **UC:** Projecto de Engenharia Informática · Universidade Aberta · 2025/26  
-**Repositório:** https://github.com/2100537/Espectrograma_Lei
+**Repositório:** https://github.com/yololiver/espectrograma
 
 ---
 
