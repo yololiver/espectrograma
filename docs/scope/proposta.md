@@ -1,105 +1,239 @@
-# Proposta de Projecto
+# Projeto Final em Engenharia Informática
 
-**Título:** [Título do projecto]  
-**Estudante:** [Nome] · [Número]  
-**Orientador:** Pedro Pestana  
-**Data:** [Data de submissão]  
-**Versão:** 1.0
+## Espectrograma  
+### Análise e Interpretação de Áudio para Utilizadores Não Especialistas
+
+**Paulo Silva - 2100537**  
+**Pedro Pestana**  
+**25-03-2026**
 
 ---
 
 ## Sinopse
 
-<!-- Três parágrafos máximo. -->
-<!-- §1: O problema que o projecto endereça e quem o tem. -->
-<!-- §2: A solução proposta e o que a distingue do que já existe. -->
-<!-- §3: O resultado esperado e como se verifica que foi atingido. -->
-<!-- A sinopse deve ser legível por alguém sem formação técnica. -->
+Ferramentas de análise de áudio, como o Audacity, permitem visualizar sinais sonoros, mas exigem conhecimento técnico para interpretar espectrogramas, ruído de fundo e distorções. Utilizadores não especialistas — como estudantes, criadores de conteúdo ou jornalistas — enfrentam dificuldades em compreender o que está a acontecer num áudio e em identificar problemas ou eventos relevantes.
 
-[Parágrafo 1 — o problema]
+Propõe-se, neste projeto, o desenvolvimento de uma aplicação web para análise e interpretação de áudio em linguagem simples. O sistema irá identificar características relevantes do sinal — como silêncio, distorção, ruído e eventos sonoros — e apresentá-las de forma visual e acessível, recorrendo a um espectrograma anotado e a descrições compreensíveis para utilizadores sem formação técnica.
 
-[Parágrafo 2 — a solução]
-
-[Parágrafo 3 — o resultado esperado e verificação]
+Espera-se obter uma ferramenta funcional que permita explorar e compreender áudio de forma rápida e intuitiva. O sistema deverá identificar e destacar eventos relevantes, apresentar feedback em linguagem simples e permitir a navegação por segmentos do áudio. O sucesso do projeto será avaliado pela implementação do MVP definido e pela capacidade do sistema de produzir resultados claros, úteis e interpretáveis para o utilizador final.
 
 ---
 
-## MVP — Definição e critérios de aceitação
+## MVP — Funcionalidades e critérios de aceitação
 
-<!-- Listar as funcionalidades do núcleo mínimo obrigatório na entrega final. -->
-<!-- Para cada funcionalidade, definir um critério de aceitação observável. -->
-<!-- Exemplo de critério fraco: "o utilizador consegue autenticar-se" -->
-<!-- Exemplo de critério forte: "dado email e password válidos, o sistema autentica e redirige para o dashboard -->
-<!--   em menos de 2 segundos; dado email inválido, apresenta mensagem de erro sem expor informação de sistema." -->
+### 1. Upload de ficheiro de áudio
 
-### Funcionalidade 1 — [Nome]
+O utilizador pode carregar um ficheiro de áudio para análise.
 
-**Critério de aceitação:**  
-[Descrição observável e verificável]
+**Critérios de aceitação:**
 
-### Funcionalidade 2 — [Nome]
+- Dado um ficheiro válido (WAV ou MP3 até 10 MB), o sistema realiza o upload e inicia a análise  
+- Dado um ficheiro inválido, o sistema apresenta uma mensagem de erro clara sem falhas  
 
-**Critério de aceitação:**  
-[Descrição observável e verificável]
+---
 
-### Funcionalidade 3 — [Nome]
+### 2. Visualização do espectrograma
 
-**Critério de aceitação:**  
-[Descrição observável e verificável]
+O sistema apresenta o espectrograma do áudio carregado.
 
-<!-- Adicionar funcionalidades conforme necessário -->
+**Critérios de aceitação:**
+
+- O espectrograma é apresentado após o upload  
+- O utilizador consegue visualizar tempo (eixo X) e frequência (eixo Y)  
+- O espectrograma corresponde ao conteúdo do áudio (validação manual)  
+
+---
+
+### 3. Deteção de silêncio
+
+Identificação automática de segmentos silenciosos.
+
+**Critérios de aceitação:**
+
+- O sistema identifica pelo menos 80% dos segmentos silenciosos num áudio de teste  
+- Os segmentos são apresentados com timestamps (ex.: 0:10–0:15)  
+
+---
+
+### 4. Deteção de clipping (distorção)
+
+Identificação de picos de sinal que causam distorção.
+
+**Critérios de aceitação:**
+
+- O sistema identifica corretamente picos de clipping e apresenta os respetivos timestamps  
+- Caso não exista clipping, o sistema apresenta “Sem distorção detectada”  
+
+---
+
+### 5. Análise de ruído de fundo
+
+Estimativa da presença de ruído contínuo no áudio.
+
+**Critérios de aceitação:**
+
+- O sistema classifica o ruído como “baixo”, “moderado” ou “alto”  
+- O resultado é apresentado sem métricas técnicas  
+
+---
+
+### 6. Deteção de eventos sonoros relevantes
+
+Identificação de eventos sonoros relevantes definidos como:
+
+- Variações abruptas de energia (aumentos súbitos de volume)  
+- Mudanças significativas no espectro de frequência  
+- Sons transitórios (ex.: batidas, cliques, impactos)  
+
+A deteção é baseada em métricas simples como energia do sinal e variação espectral entre frames consecutivos.
+
+**Critérios de aceitação:**
+
+- O sistema identifica eventos relevantes com base em mudanças de energia ou frequência  
+- Os eventos são apresentados com timestamps  
+- O sistema detecta pelo menos 70% dos eventos num áudio de teste  
+
+---
+
+### 7. Anotação visual de eventos
+
+Representação visual dos diferentes tipos de eventos no espectrograma e/ou no timeline.
+
+**Critérios de aceitação:**
+
+- O sistema apresenta pelo menos 3 tipos de eventos:
+  - ruído de fundo  
+  - clipping  
+  - eventos sonoros  
+- Cada tipo é representado com cor distinta  
+- O utilizador consegue distinguir visualmente os tipos sem conhecimento técnico  
+
+---
+
+### 8. Feedback automático em linguagem simples
+
+Geração de um resumo textual sobre a qualidade do áudio.
+
+**Critérios de aceitação:**
+
+- O sistema apresenta pelo menos 3 observações relevantes sobre o áudio  
+- O texto não contém termos técnicos (ex.: “FFT”, “RMS”)  
+
+**Exemplo:**
+
+- “O áudio apresenta ruído de fundo leve”  
+- “Existem picos de distorção em alguns momentos”  
+
+---
+
+### 9. Interface simples e utilizável
+
+Interface web intuitiva e acessível.
+
+**Critérios de aceitação:**
+
+- Um utilizador sem experiência consegue completar o fluxo (upload + análise + interpretação)  
+- A interface não apresenta erros visuais críticos  
+
+---
+
+### 10. Funcionalidades futuras (Nice to Have)
+
+- Visualização 3D do espectrograma  
+- Limpeza automática de áudio (redução de ruído e normalização)  
+- Seleção avançada por tempo e frequência (marquee tool completa)  
+
+---
+
+## Calendário
+
+O calendário segue o template do guia da unidade curricular, adaptado às necessidades do projecto.
+
+### Sem. 1–2 (17–28 mar)
+- Definição da proposta (sinopse, MVP, stack, calendário)  
+- Submissão da proposta  
+
+### Sem. 3–4 (31 mar–11 abr)
+- Levantamento de requisitos (MoSCoW)  
+- Definição da arquitectura (C4 nível 1 e 2)  
+- Modelo de dados preliminar  
+- Setup do repositório (estrutura + documentação inicial)  
+
+### Sem. 5–6 (14–25 abr)
+- Criação de wireframes da interface  
+- Definição das principais decisões de arquitectura (ADRs)  
+- Implementação inicial:
+  - Upload de áudio  
+  - Geração de espectrograma 2D  
+
+### Sem. 7 (28 abr–2 mai)
+- Continuação da implementação do núcleo  
+- Demo interna:
+  - Upload + espectrograma funcional  
+  - Primeiras versões de deteção (silêncio/clipping)  
+
+### Sem. 8 (5–6 mai)
+- Submissão do relatório intercalar  
+- Documentação completa de:
+  - Introdução  
+  - Desenho do sistema  
+
+### Sem. 9–10 (7–16 mai)
+- Implementação das funcionalidades principais:
+  - Deteção de silêncio  
+  - Deteção de clipping  
+  - Análise de ruído  
+  - Deteção de eventos  
+
+### Sem. 11–12 (19–30 mai)
+- Implementação de:
+  - Anotação visual no espectrograma  
+  - Feedback automático em linguagem simples  
+- Testes iniciais (unitários e integração)  
+
+### Sem. 13 (2–6 jun)
+- Integração completa do sistema  
+- Validação dos critérios de aceitação  
+- Melhorias de interface  
+
+### Sem. 14 (9–13 jun)
+- Testes finais (funcionalidade e desempenho)  
+- Capturas de ecrã e exemplos para relatório  
+- Redação dos capítulos finais  
+
+### Sem. 15 (16–20 jun)
+- Preparação da defesa  
+- Revisão do relatório  
+- Simulação de perguntas  
+
+### Sem. 16 (24 jun)
+- Submissão final do relatório  
+- Entrega do código e demo  
 
 ---
 
 ## Stack tecnológica
 
-<!-- Para cada tecnologia principal, uma linha de justificação. -->
-<!-- Não é necessário ser exaustivo — as decisões menores entram nos ADRs durante o desenvolvimento. -->
+O sistema segue uma arquitetura em camadas, separando a interface do utilizador, a lógica de backend e o processamento de áudio.
 
-| Componente | Tecnologia escolhida | Justificação |
-|-----------|---------------------|-------------|
-| Frontend | [ex: React 18] | [porquê esta e não outra] |
-| Backend | [ex: FastAPI] | [porquê esta e não outra] |
-| Base de dados | [ex: PostgreSQL] | [porquê esta e não outra] |
-| Hosting/Deploy | [ex: Railway] | [porquê esta e não outra] |
-| Autenticação | [ex: JWT] | [porquê esta e não outra] |
+O frontend é responsável pela interação e visualização dos dados, incluindo representações 2D. O backend, implementado em Flask, funciona como camada intermédia que gere pedidos HTTP, processamento de ficheiros e comunicação entre frontend e módulos de análise. O processamento de áudio é realizado em Python com recurso a bibliotecas científicas como librosa e numpy.
 
----
+### Frontend
 
-## Esboço de arquitectura — C4 Nível 1
+- React (Vite)  
+- Three.js  
+- Web Audio API  
+- Canvas API  
 
-<!-- Opcional mas recomendado se já houver clareza sobre a fronteira do sistema. -->
-<!-- Pode ser uma imagem, um diagrama em texto, ou uma descrição estruturada. -->
-<!-- Vai ser refinado em docs/architecture/c4-context.png durante o desenvolvimento. -->
+### Backend
 
-**Sistema:** [Nome do sistema]
+- Flask  
+- Python  
 
-**Utilizadores:**
-- [Tipo de utilizador 1] — [o que fazem com o sistema]
-- [Tipo de utilizador 2] — [o que fazem com o sistema]
+### Processamento
 
-**Sistemas externos:**
-- [Sistema externo 1] — [como o sistema interage com ele]
-- [Sistema externo 2] — [como o sistema interage com ele]
-
----
-
-## Calendário individual detalhado
-
-<!-- Adaptar o template do Guia de Projecto ao projecto específico. -->
-<!-- As datas das três entregas formais são fixas. O restante é do estudante gerir. -->
-<!-- Ser realista: prever tempo para testes, revisão do relatório e preparação da defesa. -->
-
-| Semanas | Datas | Conteúdo planeado | Marco |
-|---------|-------|------------------|-------|
-| Sem. 1–2 | 17–28 mar | Proposta. Configuração do repositório. | **Proposta (25 mar)** |
-| Sem. 3–4 | 31 mar–11 abr | [o que está planeado] | |
-| Sem. 5–6 | 14–25 abr | [o que está planeado] | |
-| Sem. 7 | 28 abr–2 mai | [o que está planeado] | **Demo interna** |
-| Sem. 8 | 5–6 mai | [o que está planeado] | **Intercalar (6 mai)** |
-| Sem. 9–10 | 7–16 mai | [o que está planeado] | |
-| Sem. 11–12 | 19–30 mai | [o que está planeado] | |
-| Sem. 13 | 2–6 jun | [o que está planeado] | |
-| Sem. 14 | 9–13 jun | [o que está planeado] | |
-| Sem. 15 | 16–20 jun | [o que está planeado] | **Prep. defesa** |
-| Sem. 16 | 24 jun | Submissão do relatório final. | **Final (24 jun)** |
+- librosa  
+- numpy  
+- scipy  
+- pydub  
+- noisereduce  

@@ -1,11 +1,11 @@
-# [Título do Projecto]
+# Espectrograma
 
 > Subtítulo ou tagline curta — o problema que resolve e para quem.
 
-**Estudante:** [Nome] · [Número]  
+**Estudante:** Paulo Silva · 2100537  
 **Orientador:** Pedro Pestana  
 **UC:** Projecto de Engenharia Informática · Universidade Aberta · 2025/26  
-**Repositório:** [URL deste repositório]
+**Repositório:** https://github.com/2100537/Espectrograma_Lei
 
 ---
 
