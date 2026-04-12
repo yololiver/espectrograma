@@ -17,8 +17,8 @@
 
 ## O que está implementado
 
-- [x] Setup do repositório — estrutura de pastas e documentação inicial (previsto semanas 3–4)
-- [ ] Wireframes da interface — previstos para as semanas 5–6
+- [x] Setup do repositório — estrutura de pastas e documentação inicial
+- [x] Wireframes da interface (versão preliminar) 
 - [ ] Upload de ficheiro de áudio — aceitação de WAV/MP3 até 10 MB com validação e mensagem de erro
 - [ ] Geração do espectrograma 2D — visualização com eixo temporal (X) e de frequência (Y)
 - [ ] Deteção de silêncio — identificação de segmentos com timestamps

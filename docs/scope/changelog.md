@@ -9,47 +9,50 @@
 ## Sem. 1 · 17–21 mar
 
 **Feito:** [O que foi concluído esta semana]  
-**Bloqueou:** [O que impediu progresso, ou "Nada"]  
+**Bloqueou:** [O que impediu progresso, ou "Nada"]
 **Próxima semana:** [O que está planeado]
 
 ---
 
 ## Sem. 2 · 24–28 mar
 **Feito:** 
-- Definição da proposta (sinopse, MVP, stack, calendário)  
-- Submissão da proposta  
-**Bloqueou:**  
+Definição da proposta (sinopse, MVP, stack, calendário)
+Submissão da proposta
+**Bloqueou:**
+Nada
 **Próxima semana:**
-- Levantamento de requisitos (MoSCoW)  
-- Definição da arquitectura (C4 nível 1 e 2)  
-- Modelo de dados preliminar  
-- Setup do repositório (estrutura + documentação inicial)
+Levantamento de requisitos (MoSCoW)  
+Definição da arquitectura (C4 nível 1 e 2)  
+Modelo de dados preliminar  
+Setup do repositório (estrutura + documentação inicial)
 ---
 
 ## Sem. 3 · 31 mar–4 abr
 
 **Feito:** 
-- Levantamento de requisitos (MoSCoW)  
-- Definição da arquitectura (C4 nível 1 e 2)  
-**Bloqueou:**  
+Levantamento de requisitos (MoSCoW)  
+Definição da arquitectura (C4 nível 1 e 2)  
+**Bloqueou:**
+Nada 
 **Próxima semana:**
-- Modelo de dados preliminar  
-- Setup do repositório (estrutura + documentação inicial)
+Modelo de dados preliminar
+Setup do repositório (estrutura + documentação inicial)
 
 ---
 
 ## Sem. 4 · 7–11 abr
 
 **Feito:**
-- Modelo de dados preliminar  
-- Setup do repositório (estrutura + documentação inicial)
-**Bloqueou:**  
+Modelo de dados preliminar  
+Setup do repositório (estrutura + documentação inicial)
+Criação de wireframes da interface 
+**Bloqueou:**
+Nada
 **Próxima semana:**
-- Criação de wireframes da interface  
-- Definição das principais decisões de arquitectura (ADRs)  
-- Implementação inicial:
-  - Upload de áudio  
-  - Geração de espectrograma 2D 
+Finalização de wireframes da interface
+Implementação inicial:
+Upload de áudio  
+Geração de espectrograma 2D 
 
 ---
 
