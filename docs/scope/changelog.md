@@ -16,15 +16,16 @@
 
 ## Sem. 2 · 24–28 mar
 
-**Feito:**  
-**Bloqueou:**  
-**Próxima semana:**
+- Definição da proposta (sinopse, MVP, stack, calendário)  
+- Submissão da proposta  
 
 ---
 
 ## Sem. 3 · 31 mar–4 abr
 
-**Feito:**  
+**Feito:
+- Levantamento de requisitos (MoSCoW)  
+- Definição da arquitectura (C4 nível 1 e 2)  
 **Bloqueou:**  
 **Próxima semana:**
 
@@ -32,9 +33,16 @@
 
 ## Sem. 4 · 7–11 abr
 
-**Feito:**  
+**Feito:
+- Modelo de dados preliminar  
+- Setup do repositório (estrutura + documentação inicial)  **
 **Bloqueou:**  
-**Próxima semana:**
+**Próxima semana:
+- Criação de wireframes da interface  
+- Definição das principais decisões de arquitectura (ADRs)  
+- Implementação inicial:
+  - Upload de áudio  
+  - Geração de espectrograma 2D  **
 
 ---
 

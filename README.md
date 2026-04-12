@@ -1,111 +1,71 @@
 # Espectrograma
 
-> Subtítulo ou tagline curta — o problema que resolve e para quem.
+> Ferramenta web que analisa ficheiros de áudio e explica o que contêm — em linguagem simples, sem exigir conhecimento técnico.
 
 **Estudante:** Paulo Silva · 2100537  
 **Orientador:** Pedro Pestana  
 **UC:** Projecto de Engenharia Informática · Universidade Aberta · 2025/26  
-**Repositório:** https://github.com/2100537/Espectrograma_Lei
+**Repositório:** https://github.com/yololiver/espectrograma
 
 ---
 
 ## Estado actual
 
-<!-- Actualizar a cada entrega. Escolher um estado e apagar os outros. -->
-
-🟢 **Verde** — A correr conforme planeado.  
-🟡 **Amarelo** — [Descrever o que está em risco ou bloqueado, numa linha.]  
-🔴 **Vermelho** — [Descrever o problema crítico, numa linha.]
+🟢 Verde — A correr conforme planeado.
 
 ---
 
 ## O que está implementado
 
-<!-- Lista das funcionalidades do MVP que estão funcionais. -->
-<!-- Ser específico: não "o login está feito" mas "autenticação por email/password com JWT, sessão persistente em localStorage." -->
-
-- [ ] Funcionalidade A — [descrição breve]
-- [ ] Funcionalidade B — [descrição breve]
-- [ ] Funcionalidade C — [descrição breve]
-
----
-
-## O que está pendente
-
-<!-- O que falta do MVP e porquê. Se algo foi descontinuado, explicar a decisão. -->
-
-- [ ] Funcionalidade D — [estado e razão do atraso se aplicável]
-- [ ] Funcionalidade E — [estado]
+- [x] Setup do repositório — estrutura de pastas e documentação inicial (previsto semanas 3–4)
+- [ ] Wireframes da interface — previstos para as semanas 5–6
+- [ ] Upload de ficheiro de áudio — aceitação de WAV/MP3 até 10 MB com validação e mensagem de erro
+- [ ] Geração do espectrograma 2D — visualização com eixo temporal (X) e de frequência (Y)
+- [ ] Deteção de silêncio — identificação de segmentos com timestamps
+- [ ] Deteção de clipping — identificação de picos de saturação com timestamps
+- [ ] Análise de ruído de fundo — classificação em "baixo", "moderado" ou "alto"
+- [ ] Deteção de eventos sonoros — variações de energia, mudanças espectrais e sons transitórios
+- [ ] Anotação visual de eventos — ≥ 3 tipos com cores distintas no espectrograma/timeline
+- [ ] Feedback automático em linguagem simples — ≥ 3 observações sem termos técnicos
+- [ ] Interface web utilizável — fluxo completo sem formação prévia
+- [ ] Todas as funcionalidades do MVP — implementação prevista para as semanas 5–12 conforme calendário
 
 ---
 
 ## Como instalar e correr
 
-<!-- Instruções que funcionam numa máquina limpa. Se não funcionar na demo, não conta como feito. -->
-
 ### Pré-requisitos
-
-```
-[ex: Node.js 20+, Python 3.11+, Docker, etc.]
-```
-
+---
 ### Instalação
-
-```bash
-# 1. Clonar o repositório
-git clone [URL]
-cd [nome-do-repo]
-
-# 2. Instalar dependências
-[ex: npm install / pip install -r requirements.txt]
-
-# 3. Configurar variáveis de ambiente
-cp .env.example .env
-# Editar .env com os valores correctos
-
-# 4. Correr
-[ex: npm run dev / python app.py]
-```
-
-### Acesso
-
-```
-[ex: http://localhost:3000]
-[Credenciais de teste se aplicável]
-```
-
 ---
 
 ## Decisões de arquitectura principais
 
-<!-- 2 a 4 decisões relevantes com justificação breve. Para o detalhe completo, ver docs/architecture/adr/. -->
-
 | Decisão | Alternativa considerada | Razão da escolha |
 |---------|------------------------|-----------------|
-| [ex: PostgreSQL] | [ex: MongoDB] | [ex: dados relacionais com integridade referencial necessária] |
-| [ex: React] | [ex: Vue] | [ex: maior familiaridade da equipa, ecossistema] |
+| Flask (backend) | FastAPI | Simplicidade e familiaridade; overhead mínimo para uma API sem requisitos de alta concorrência no MVP |
+| React + Vite (frontend) | Vue.js | Ecossistema mais amplo; compatibilidade com Three.js e Web Audio API bem documentada |
+| librosa (processamento de áudio) | essentia, torchaudio | API de alto nível orientada a análise; documentação extensa; não requer GPU |
+| Espectrograma via Canvas API | biblioteca de charting (Chart.js, Plotly) | Controlo total sobre a renderização e anotação visual sem dependências adicionais |
 
 ---
 
 ## Referências e IA utilizada
 
-<!-- Bibliotecas, APIs externas, tutoriais seguidos. -->
-<!-- Distinguir o que foi escrito de raiz do que foi adaptado ou gerado. -->
-
 ### Referências técnicas
 
-- [Referência 1]
-- [Referência 2]
+- [librosa — documentação oficial](https://librosa.org/doc/)
+- [Web Audio API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API)
+- [Canvas API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API)
+- [Flask — documentação oficial](https://flask.palletsprojects.com/)
+- [noisereduce — repositório](https://github.com/timsainburg/noisereduce)
 
 ### Ferramentas de IA utilizadas
 
-<!-- Obrigatório declarar. Não é penalizado. -->
-
 | Ferramenta | Para que foi usada |
 |-----------|-------------------|
-| [ex: GitHub Copilot] | [ex: autocompletar código boilerplate] |
-| [ex: Claude] | [ex: explorar alternativas de arquitectura] |
+| Claude (Anthropic) | Apoio na redacção da documentação (requisitos MoSCoW, arquitectura C4, gestão de riscos, README) |
 
 ---
 
-*Última actualização: [data] · [semana do semestre, ex: Sem. 7]*
+*Última actualização: Abril 2026 · Sem. 3–4*
