@@ -6,83 +6,308 @@
 
 ---
 
-## Método MoSCoW
+## 1. Levantamento de Requisitos (MoSCoW)
 
-| Categoria | Significado |
-|-----------|------------|
-| **Must have** | Obrigatório. Sem isto o projecto não é entregável. |
-| **Should have** | Importante mas não crítico. Incluir se o tempo permitir. |
-| **Could have** | Desejável. Só se tudo o resto estiver concluído. |
-| **Won't have** | Explicitamente fora do âmbito desta versão. |
+O método MoSCoW classifica os requisitos em quatro categorias: **Must Have** (obrigatório para o MVP), **Should Have** (importante mas não crítico), **Could Have** (desejável se houver tempo), e **Won't Have** (fora do âmbito desta iteração).
 
 ---
 
-## Requisitos funcionais
+### 1.1 Must Have
 
-<!-- O que o sistema faz. -->
+Requisitos essenciais sem os quais o MVP não é funcional ou entregável.
 
-### Must have
-
-- RF01 — **Upload de ficheiro de áudio:** O utilizador pode carregar um ficheiro WAV ou MP3 até 10 MB; o sistema inicia a análise automaticamente após upload válido e apresenta mensagem de erro clara para ficheiros inválidos.
-- RF02 — **Visualização do espectrograma 2D:** O sistema apresenta o espectrograma após o upload, com eixo temporal (X) e de frequência (Y), correspondente ao conteúdo real do áudio.
-- RF03 — **Deteção de segmentos de silêncio:** O sistema identifica automaticamente segmentos silenciosos (≥ 80% de cobertura num áudio de teste) e apresenta-os com timestamps (ex.: 0:10–0:15).
-- RF04 — **Deteção de clipping (distorção):** O sistema identifica picos de saturação com os respectivos timestamps; quando não existe clipping, apresenta "Sem distorção detectada".
-- RF05 — **Análise de ruído de fundo:** O sistema classifica o ruído contínuo como "baixo", "moderado" ou "alto", sem recurso a métricas técnicas.
-- RF06 — **Deteção de eventos sonoros relevantes:** O sistema identifica variações abruptas de energia, mudanças significativas no espectro e sons transitórios (ex.: batidas, cliques), com timestamps e cobertura ≥ 70% num áudio de teste.
-- RF07 — **Anotação visual de eventos:** O espectrograma e/ou timeline apresentam pelo menos 3 tipos de eventos (ruído de fundo, clipping, eventos sonoros) com cores distintas, distinguíveis sem conhecimento técnico.
-- RF08 — **Feedback automático em linguagem simples:** O sistema gera pelo menos 3 observações sobre a qualidade do áudio, sem termos técnicos (ex.: "O áudio apresenta ruído de fundo leve", "Existem picos de distorção em alguns momentos").
-- RF09 — **Interface web utilizável por não especialistas:** Um utilizador sem experiência técnica consegue completar o fluxo completo (upload → análise → interpretação) sem erros visuais críticos.
-
-### Should have
-
-- RF10 — **Navegação por segmentos:** O utilizador pode clicar num evento anotado e ouvir o segmento de áudio correspondente directamente na interface.
-- RF11 — **Indicador de progresso:** A interface apresenta feedback visual durante o processamento do áudio (ex.: barra de progresso ou spinner com estado).
-- RF12 — **Exportação do relatório:** O utilizador pode exportar o relatório de análise em formato texto ou PDF.
-- RF13 — **Interface responsiva:** A interface adapta-se correctamente a diferentes resoluções de ecrã (desktop e tablet).
-- RF14 — **Suporte a MP3 com bitrate variável (VBR):** O sistema processa correctamente ficheiros MP3 com bitrate variável sem falhas na análise.
-
-### Could have
-
-- RF15 — **Visualização 3D do espectrograma:** Representação tridimensional e interactiva do espectrograma utilizando Three.js.
-- RF16 — **Limpeza automática de áudio:** Redução de ruído e normalização do sinal via `noisereduce`, com possibilidade de download do áudio tratado.
-- RF17 — **Ferramenta de selecção por região (marquee tool):** O utilizador pode seleccionar uma região específica no espectrograma por tempo e frequência para análise localizada.
-- RF18 — **Histórico de sessão:** A interface mantém um histórico dos ficheiros analisados durante a sessão actual.
-- RF19 — **Tooltips explicativos:** Cada tipo de evento anotado disponibiliza um tooltip com explicação acessível ao utilizador.
-
-### Won't have (nesta versão)
-
-- RF20 — **Autenticação e contas persistentes:** Fora do âmbito do MVP; introduziria complexidade de backend desnecessária nesta fase.
-- RF21 — **Processamento em tempo real (streaming ao vivo):** Requer arquitectura de baixa latência não prevista na stack actual.
-- RF22 — **Suporte a formatos adicionais (FLAC, AIFF, OGG):** O MVP limita-se a WAV e MP3; outros formatos serão considerados em versões futuras.
-- RF23 — **Transcrição de fala (speech-to-text):** Funcionalidade distinta com requisitos de modelos de ML específicos, fora do âmbito deste projecto.
-- RF24 — **API pública para integração com terceiros:** Não previsto nesta versão; poderá ser considerado após consolidação do MVP.
+| ID | Requisito | Critério de aceitação resumido |
+|----|-----------|-------------------------------|
+| M01 | Upload de ficheiro de áudio (WAV/MP3, ≤ 10 MB) | Upload bem-sucedido inicia análise; ficheiro inválido gera mensagem de erro clara |
+| M02 | Geração e visualização do espectrograma 2D | Espectrograma apresentado após upload, com eixo temporal (X) e de frequência (Y) |
+| M03 | Deteção de segmentos de silêncio | Identifica ≥ 80% dos silêncios num áudio de teste; apresenta timestamps |
+| M04 | Deteção de clipping (distorção por saturação) | Identifica picos de clipping com timestamps; confirma ausência quando não existe |
+| M05 | Análise de ruído de fundo | Classifica ruído como "baixo", "moderado" ou "alto", sem métricas técnicas |
+| M06 | Deteção de eventos sonoros relevantes | Identifica ≥ 70% dos eventos por variação de energia/frequência; apresenta timestamps |
+| M07 | Anotação visual de eventos no espectrograma | ≥ 3 tipos de eventos representados com cores distintas e legíveis sem conhecimento técnico |
+| M08 | Feedback automático em linguagem simples | ≥ 3 observações sobre qualidade do áudio, sem termos técnicos (ex.: sem "FFT", "RMS") |
+| M09 | Interface web utilizável por não especialistas | Utilizador sem experiência completa o fluxo (upload → análise → interpretação) sem erros |
 
 ---
 
-## Requisitos não-funcionais
+### 1.2 Should Have
 
-<!-- Como o sistema se comporta: performance, segurança, usabilidade, escalabilidade. -->
+Requisitos importantes que melhoram significativamente a experiência, mas cuja ausência não inviabiliza o MVP.
 
-### Must have
-
-- RNF01 — **Performance:** O sistema conclui a análise e apresenta o espectrograma anotado em menos de 10 segundos para ficheiros até 10 MB, em condições normais de utilização.
-- RNF02 — **Segurança:** Os ficheiros de áudio carregados são validados no backend antes de qualquer processamento; ficheiros inválidos ou com formato não suportado são rejeitados sem expor detalhes internos do servidor.
-- RNF03 — **Usabilidade:** A interface é utilizável sem formação prévia por utilizadores do perfil alvo (estudantes, jornalistas, criadores de conteúdo), completando o fluxo principal sem necessidade de documentação.
-
-### Should have
-
-- RNF04 — **Escalabilidade:** A arquitectura Flask permite configuração futura com workers concorrentes (ex.: Gunicorn) para suportar múltiplos pedidos simultâneos sem refactoring major.
-- RNF05 — **Manutenibilidade:** Os módulos de processamento de áudio dispõem de testes unitários cobrindo os casos principais de deteção (silêncio, clipping, ruído, eventos).
-
-### Could have
-
-- RNF06 — **Suporte multilingue:** A interface e os textos de feedback automático poderão ser disponibilizados em inglês, além do português, numa versão futura.
+| ID | Requisito |
+|----|-----------|
+| S01 | Navegação por segmentos do áudio (clicar num evento e ouvir o segmento correspondente) |
+| S02 | Indicador de progresso durante o processamento do áudio |
+| S03 | Exportação do relatório de análise em formato texto ou PDF |
+| S04 | Responsividade da interface para diferentes resoluções de ecrã |
+| S05 | Suporte a ficheiros MP3 com bitrate variável (VBR) |
 
 ---
 
-## Histórico de alterações
+### 1.3 Could Have
 
-| Versão | Data | Alteração | Razão |
-|--------|------|-----------|-------|
-| 1.0 | Abril 2026 | Versão inicial | Proposta de projecto (semanas 3–4) |
-| | | | |
+Requisitos desejáveis, implementados apenas se o calendário o permitir.
+
+| ID | Requisito |
+|----|-----------|
+| C01 | Visualização 3D interactiva do espectrograma (Three.js) |
+| C02 | Limpeza automática de áudio (redução de ruído e normalização via `noisereduce`) |
+| C03 | Ferramenta de selecção por região no espectrograma (marquee tool) |
+| C04 | Histórico de ficheiros analisados na sessão actual |
+| C05 | Tooltips explicativos sobre cada tipo de evento detectado |
+
+---
+
+### 1.4 Won't Have
+
+Requisitos explicitamente excluídos desta iteração do projecto.
+
+| ID | Requisito | Justificação |
+|----|-----------|-------------|
+| W01 | Autenticação de utilizadores / contas persistentes | Fora do âmbito do MVP; complexidade desnecessária nesta fase |
+| W02 | Processamento em tempo real (streaming de áudio ao vivo) | Requer arquitectura de baixa latência fora do âmbito actual |
+| W03 | Suporte a formatos de áudio sem perdas (FLAC, AIFF, OGG) | Limitado a WAV e MP3 no MVP |
+| W04 | Transcrição de fala (speech-to-text) | Funcionalidade distinta com requisitos de ML específicos |
+| W05 | API pública para integração com terceiros | Não previsto nesta versão |
+
+---
+
+## 2. Arquitectura do Sistema (C4 — Nível 1 e 2)
+
+### 2.1 Nível 1 — Diagrama de Contexto (System Context)
+
+O diagrama de contexto descreve o sistema na sua relação com os actores externos.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       CONTEXTO DO SISTEMA                   │
+└─────────────────────────────────────────────────────────────┘
+
+        ┌──────────────────┐
+        │   Utilizador     │
+        │  Não Especialista│
+        │ (estudante,      │
+        │  jornalista,     │
+        │  criador conteúdo│
+        └────────┬─────────┘
+                 │
+                 │  Faz upload de áudio
+                 │  Recebe espectrograma anotado
+                 │  e feedback em linguagem simples
+                 ▼
+        ┌──────────────────────────────────────┐
+        │                                      │
+        │         ESPECTROGRAMA                │
+        │  Análise e Interpretação de Áudio    │
+        │       (Aplicação Web)                │
+        │                                      │
+        └──────────────────────────────────────┘
+```
+
+**Actores externos:**
+
+| Actor | Tipo | Interacção |
+|-------|------|------------|
+| Utilizador não especialista | Pessoa | Carrega ficheiros de áudio; visualiza espectrograma e relatório gerado |
+
+> Nota: O sistema não depende de serviços externos de terceiros. Todo o processamento é realizado localmente no servidor Flask.
+
+---
+
+### 2.2 Nível 2 — Diagrama de Contentores (Container Diagram)
+
+O diagrama de contentores decompõe o sistema nos seus principais blocos tecnológicos e nas comunicações entre eles.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                          SISTEMA: ESPECTROGRAMA                        │
+│                                                                        │
+│  ┌──────────────────────────────────┐                                  │
+│  │         FRONTEND                 │                                  │
+│  │  React + Vite                    │                                  │
+│  │                                  │                                  │
+│  │  • Interface de upload           │                                  │
+│  │  • Visualização do espectrograma │                                  │
+│  │    (Canvas API / Three.js)       │                                  │
+│  │  • Anotação visual de eventos    │                                  │
+│  │  • Painel de feedback textual    │                                  │
+│  │  • Web Audio API (reprodução)    │                                  │
+│  └──────────────┬───────────────────┘                                  │
+│                 │                                                       │
+│        HTTP REST (JSON + multipart/form-data)                          │
+│                 │                                                       │
+│  ┌──────────────▼───────────────────┐                                  │
+│  │         BACKEND (API)            │                                  │
+│  │  Flask (Python)                  │                                  │
+│  │                                  │                                  │
+│  │  • Recepção e validação de upload│                                  │
+│  │  • Orquestração do pipeline      │                                  │
+│  │    de análise                    │                                  │
+│  │  • Serialização dos resultados   │                                  │
+│  │    em JSON                       │                                  │
+│  └──────────────┬───────────────────┘                                  │
+│                 │                                                       │
+│        Chamadas Python internas                                        │
+│                 │                                                       │
+│  ┌──────────────▼───────────────────┐                                  │
+│  │     MÓDULO DE PROCESSAMENTO      │                                  │
+│  │     DE ÁUDIO (Python)            │                                  │
+│  │                                  │                                  │
+│  │  • librosa  → espectrograma,     │                                  │
+│  │               deteção de eventos │                                  │
+│  │  • numpy    → operações matriciais│                                 │
+│  │  • scipy    → filtragem de sinal │                                  │
+│  │  • pydub    → leitura/conversão  │                                  │
+│  │               de formatos        │                                  │
+│  │  • noisereduce → análise de ruído│                                  │
+│  └──────────────────────────────────┘                                  │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+**Descrição dos contentores:**
+
+| Contentor | Tecnologia | Responsabilidade principal |
+|-----------|------------|---------------------------|
+| **Frontend** | React (Vite), Canvas API, Three.js, Web Audio API | Apresentação da interface, visualização do espectrograma, reprodução de segmentos de áudio, exibição de anotações e feedback |
+| **Backend (API)** | Flask (Python) | Exposição de endpoints REST, validação dos ficheiros recebidos, orquestração do pipeline de análise, formatação e devolução dos resultados |
+| **Módulo de Processamento** | librosa, numpy, scipy, pydub, noisereduce | Extracção de características do sinal de áudio: geração do espectrograma, deteção de silêncio, clipping, ruído de fundo e eventos sonoros |
+
+**Fluxo principal de dados:**
+
+1. O utilizador selecciona e envia um ficheiro de áudio via interface web.
+2. O Frontend envia o ficheiro por `multipart/form-data` para o Backend Flask.
+3. O Backend valida o ficheiro e invoca o Módulo de Processamento.
+4. O Módulo de Processamento analisa o sinal e devolve os resultados ao Backend.
+5. O Backend serializa os resultados em JSON e responde ao Frontend.
+6. O Frontend renderiza o espectrograma anotado e apresenta o feedback ao utilizador.
+
+---
+
+## 3. Modelo de Dados Preliminar
+
+O sistema não utiliza base de dados persistente. Toda a informação é gerada em memória durante o ciclo de vida de um pedido HTTP e descartada após a resposta. O estado no frontend é mantido em React state e desaparece ao fechar ou recarregar a página.
+
+A documentação que se segue descreve as estruturas de dados em memória — os objectos Python produzidos no backend e o JSON transmitido ao frontend.
+
+### 3.1 Fluxo de dados em memória
+
+```
+Utilizador
+    │  ficheiro de áudio (WAV / MP3)
+    ▼
+[Frontend — React state]
+    │  multipart/form-data
+    ▼
+[Backend Flask]
+    │  bytes em memória (BytesIO)
+    ▼
+[Módulo de Processamento]
+    │  objectos Python (AudioFile → AnalysisResult)
+    ▼
+[Backend Flask]
+    │  serialização → JSON
+    ▼
+[Frontend — React state]        ← descartado ao fechar/recarregar
+```
+
+### 3.2 Estruturas de dados Python (backend / módulo de processamento)
+
+```python
+@dataclass
+class AudioFile:
+    filename: str
+    duration_seconds: float
+    sample_rate: int          # Hz, ex.: 44100
+    channels: int             # 1 = mono, 2 = stereo
+    data: np.ndarray          # sinal em memória (librosa)
+
+@dataclass
+class SilenceSegment:
+    start: float              # segundos
+    end: float
+
+@dataclass
+class ClippingSegment:
+    start: float
+    end: float
+
+@dataclass
+class SoundEvent:
+    start: float
+    end: float
+    type: str                 # "impacto" | "variacao_energia" | "variacao_espectral"
+
+@dataclass
+class AnalysisResult:
+    noise_level: str          # "baixo" | "moderado" | "alto"
+    spectrogram_b64: str      # PNG codificado em base64
+    time_axis: list[float]
+    freq_axis: list[float]
+    silence_segments: list[SilenceSegment]
+    clipping_segments: list[ClippingSegment]
+    sound_events: list[SoundEvent]
+    feedback: list[str]       # observações em linguagem simples
+```
+
+### 3.3 Estrutura da resposta da API (JSON)
+
+```json
+{
+  "audio_info": {
+    "filename": "gravacao.wav",
+    "duration_seconds": 42.3,
+    "sample_rate": 44100,
+    "channels": 1
+  },
+  "spectrogram": {
+    "image_base64": "<string base64>",
+    "time_axis": [0.0, 0.023, 0.046],
+    "frequency_axis": [0.0, 43.0, 86.0]
+  },
+  "analysis": {
+    "noise_level": "moderado",
+    "silence_segments": [
+      { "start": 2.1, "end": 4.8 },
+      { "start": 18.0, "end": 20.5 }
+    ],
+    "clipping_segments": [
+      { "start": 7.3, "end": 7.4 }
+    ],
+    "sound_events": [
+      { "start": 5.0, "end": 5.2, "type": "impacto" },
+      { "start": 11.4, "end": 11.7, "type": "variacao_energia" }
+    ]
+  },
+  "feedback": [
+    "O áudio apresenta ruído de fundo moderado ao longo de toda a gravação.",
+    "Existem picos de distorção aos 7 segundos.",
+    "Foram detectadas duas pausas prolongadas entre os 2 e os 20 segundos."
+  ]
+}
+```
+
+> O JSON é descartado no backend após envio. No frontend, os dados são mantidos em React state (`useState`) enquanto a sessão estiver activa.
+
+### 3.4 Entidades e atributos
+
+| Entidade | Atributo | Tipo | Descrição |
+|----------|----------|------|-----------|
+| `AudioFile` | `filename` | string | Nome do ficheiro carregado |
+| | `duration_seconds` | float | Duração total em segundos |
+| | `sample_rate` | int | Taxa de amostragem (Hz) |
+| | `channels` | int | 1 = mono, 2 = stereo |
+| | `data` | np.ndarray | Sinal de áudio em memória |
+| `AnalysisResult` | `noise_level` | enum | `"baixo"` \| `"moderado"` \| `"alto"` |
+| | `spectrogram_b64` | string | Imagem PNG do espectrograma codificada em base64 |
+| | `time_axis` | float[] | Instantes temporais das colunas do espectrograma |
+| | `freq_axis` | float[] | Frequências das linhas do espectrograma |
+| | `feedback` | string[] | Observações em linguagem simples |
+| `SilenceSegment` | `start`, `end` | float | Intervalo temporal (segundos) |
+| `ClippingSegment` | `start`, `end` | float | Intervalo temporal do pico de saturação |
+| `SoundEvent` | `start`, `end` | float | Intervalo temporal do evento |
+| | `type` | string | `"impacto"` \| `"variacao_energia"` \| `"variacao_espectral"` |
+
+---
+
+*Documentação gerada para o Projecto Final em Engenharia Informática — Universidade Aberta, 2026.*
