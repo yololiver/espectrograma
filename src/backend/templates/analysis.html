@@ -23,10 +23,10 @@
 
     <div class="section-label">Espectrograma</div>
     <div class="spectrogram-box">
-      <div class="spec-axis-y">
-        <span>8 kHz</span><span>4 kHz</span><span>1 kHz</span><span>0</span>
+        <div class="spec-axis-y" id="spec-axis-y">
+        <span>20 kHz</span><span>15 kHz</span><span>10 kHz</span><span>5 kHz</span><span>0</span>
       </div>
-      <canvas class="spec" id="spec-canvas" height="130"></canvas>
+      <canvas class="spec" id="spec-canvas" height="220"></canvas>
 
       {% for a in annotations %}
       <div class="annotation"
@@ -34,15 +34,17 @@
       </div>
       {% endfor %}
 
-      <div class="spec-axis-x">
+      <div class="spec-axis-x" id="spec-axis-x">
         <span>0 s</span><span>10 s</span><span>20 s</span><span>30 s</span><span>42 s</span>
       </div>
     </div>
 
     <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#378ADD"></div>silêncio</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div>clipping</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#EF9F27"></div>evento sonoro</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#0064C8"></div>silêncio</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#00FF00"></div>baixa energia</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FFFF00"></div>média</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FF5500"></div>alta</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FF0000"></div>pico máximo</div>
     </div>
 
     <div class="section-label">Eventos detectados</div>
@@ -68,10 +70,126 @@
   var c   = document.getElementById('spec-canvas');
   var ctx = c.getContext('2d');
   var W   = c.offsetWidth * (window.devicePixelRatio || 1);
-  var H   = 130 * (window.devicePixelRatio || 1);
+  var H   = 220 * (window.devicePixelRatio || 1);
   c.width = W; c.height = H;
   var dark = matchMedia('(prefers-color-scheme:dark)').matches;
-  ctx.fillStyle = dark ? '#1a1a18' : '#f8f7f4';
+  
+  var specDataStr = '{{ spec_data | safe }}';
+  var specDuration = {{ spec_duration | default(42) }};
+  var specSr = {{ spec_sr | default(44100) }};
+  var useRealData = specDataStr && specDataStr.length > 2;
+  
+  // Atualiza eixo X com tempos reais
+  var axisX = document.getElementById('spec-axis-x');
+  if (axisX && specDuration) {
+    var numTicks = 5;
+    var interval = specDuration / (numTicks - 1);
+    axisX.innerHTML = '';
+    for (var i = 0; i < numTicks; i++) {
+      var time = Math.round(i * interval);
+      var span = document.createElement('span');
+      span.textContent = time + ' s';
+      axisX.appendChild(span);
+    }
+  }
+  
+  // Atualiza eixo Y com frequências reais
+  var axisY = document.getElementById('spec-axis-y');
+  if (axisY && specSr && useRealData) {
+    try {
+      var specData = JSON.parse(specDataStr);
+      var numFreqBins = specData.length;
+      var nyquist = specSr / 2; // Frequência máxima (Nyquist)
+      var freqStep = nyquist / numFreqBins;
+      
+      axisY.innerHTML = '';
+      var freqTicks = [nyquist * 0.8, nyquist * 0.4, nyquist * 0.1, 0];
+      
+      for (var i = 0; i < freqTicks.length; i++) {
+        var freq = Math.round(freqTicks[i] / 1000); // Convert to kHz
+        var span = document.createElement('span');
+        span.textContent = freq + ' kHz';
+        axisY.appendChild(span);
+      }
+    } catch (e) {
+      // Mantém valores padrão se houver erro
+    }
+  }
+  
+  if (useRealData) {
+    try {
+      var specData = JSON.parse(specDataStr);
+      var numFreqBins = specData.length;
+      var numTimeBins = specData[0] ? specData[0].length : 0;
+      var freqHeight = H / numFreqBins;
+      var timeWidth = numTimeBins ? W / numTimeBins : W;
+      ctx.imageSmoothingEnabled = false;
+      
+      // Pintar background azul
+      ctx.fillStyle = '#0066CC';
+      ctx.fillRect(0, 0, W, H);
+
+      function palette(value) {
+        var x = Math.max(0, Math.min(1, value));
+        var r, g, b;
+        
+        // Típico colormap de espectrograma: azul escuro -> cyan -> verde -> amarelo -> laranja -> vermelho
+        if (x < 0.167) {
+          // Azul escuro para cyan
+          var t = x / 0.167;
+          r = 0;
+          g = Math.round(100 + t * 155);
+          b = Math.round(200 + t * 55);
+        } else if (x < 0.333) {
+          // Cyan para verde
+          var t = (x - 0.167) / 0.167;
+          r = 0;
+          g = Math.round(255 - t * 100);
+          b = Math.round(255 - t * 255);
+        } else if (x < 0.5) {
+          // Verde para amarelo
+          var t = (x - 0.333) / 0.167;
+          r = Math.round(t * 255);
+          g = 255;
+          b = 0;
+        } else if (x < 0.667) {
+          // Amarelo para laranja
+          var t = (x - 0.5) / 0.167;
+          r = 255;
+          g = Math.round(255 - t * 165);
+          b = 0;
+        } else if (x < 0.833) {
+          // Laranja para vermelho
+          var t = (x - 0.667) / 0.167;
+          r = 255;
+          g = Math.round(90 - t * 90);
+          b = 0;
+        } else {
+          // Vermelho para vermelho brilhante
+          var t = (x - 0.833) / 0.167;
+          r = 255;
+          g = 0;
+          b = Math.round(t * 100);
+        }
+        
+        return 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
+      }
+
+      for (var fi = 0; fi < numFreqBins; fi++) {
+        var freq = specData[fi];
+        for (var ti = 0; ti < numTimeBins; ti++) {
+          var magnitude = freq[ti] / 255;
+          ctx.fillStyle = palette(magnitude);
+          ctx.fillRect(ti * timeWidth, fi * freqHeight, timeWidth, freqHeight);
+        }
+      }
+      return;
+    } catch (e) {
+      console.log('Usando simulacao');
+    }
+  }
+  
+  ctx.fillStyle = '#0066CC';
   ctx.fillRect(0, 0, W, H);
   for (var x = 0; x < W; x++) {
     for (var y = 0; y < H; y++) {
@@ -81,10 +199,30 @@
       v += Math.exp(-Math.pow(y / H - 0.72, 2) * 18) * 0.45 * (0.5 + Math.sin(x / W * Math.PI * 14) * 0.5);
       v += Math.exp(-Math.pow(y / H - 0.42, 2) * 28) * 0.22 * (0.5 + Math.cos(x / W * Math.PI * 22) * 0.5);
       v = Math.min(1, Math.max(0, v));
-      ctx.fillStyle = 'rgba('
-        + Math.round(v * (dark ? 160 : 110) + 20) + ','
-        + Math.round(v * (dark ? 70  : 50)  + 8)  + ','
-        + Math.round(v * (dark ? 190 : 210) + 30) + ',1)';
+      
+      // Típico colormap de espectrograma: azul escuro -> cyan -> verde -> amarelo -> laranja -> vermelho
+      var r, g, b;
+      if (v < 0.167) {
+        var t = v / 0.167;
+        r = 0; g = Math.round(100 + t * 155); b = Math.round(200 + t * 55);
+      } else if (v < 0.333) {
+        var t = (v - 0.167) / 0.167;
+        r = 0; g = Math.round(255 - t * 100); b = Math.round(255 - t * 255);
+      } else if (v < 0.5) {
+        var t = (v - 0.333) / 0.167;
+        r = Math.round(t * 255); g = 255; b = 0;
+      } else if (v < 0.667) {
+        var t = (v - 0.5) / 0.167;
+        r = 255; g = Math.round(255 - t * 165); b = 0;
+      } else if (v < 0.833) {
+        var t = (v - 0.667) / 0.167;
+        r = 255; g = Math.round(90 - t * 90); b = 0;
+      } else {
+        var t = (v - 0.833) / 0.167;
+        r = 255; g = 0; b = Math.round(t * 100);
+      }
+      
+      ctx.fillStyle = 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
       ctx.fillRect(x, y, 1, 1);
     }
   }

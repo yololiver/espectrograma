@@ -65,7 +65,7 @@ Upload de áudio
 Geração de espectrograma 2D 
 **Bloqueou:**  
 **Próxima semana:**
-Continuação da implementação do núcleo  
+Continuação da implementação do núcleo e melhoria da vizualização do espectrograma
 Demo interna:
 Upload + espectrograma funcional  
 Primeiras versões de deteção (silêncio/clipping)  
