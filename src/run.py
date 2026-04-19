@@ -1,7 +1,9 @@
+import os
 from backend import create_app
 
 app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000)
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+    app.run(host="127.0.0.1", port=5000, debug=app.config.get("DEBUG", True))

@@ -23,6 +23,7 @@ env/
 instance/
 .env
 src/.env
+src/uploads/
 .env.local
 .env.*.local
 

@@ -59,8 +59,17 @@ Geração de espectrograma 2D
 ## Sem. 5 · 14–17 abr
 
 **Feito:**  
+Finalização de wireframes da interface
+Implementação inicial:
+Upload de áudio  
+Geração de espectrograma 2D 
 **Bloqueou:**  
 **Próxima semana:**
+Continuação da implementação do núcleo  
+Demo interna:
+Upload + espectrograma funcional  
+Primeiras versões de deteção (silêncio/clipping)  
+
 
 ---
 
