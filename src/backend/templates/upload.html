@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="device">
+  <div class="nav-bar">
+    <span class="nav-logo">Espectrograma</span>
+    <div class="nav-steps">
+      <span class="step active">1 upload</span>
+      <span class="step-sep">›</span>
+      <span class="step">2 análise</span>
+      <span class="step-sep">›</span>
+      <span class="step">3 feedback</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <p class="screen-title">Carregar ficheiro de áudio</p>
+    <p class="screen-sub">WAV ou MP3 · máximo 10 MB</p>
+
+    <form method="POST" enctype="multipart/form-data" id="upload-form">
+
+      <!-- Drop zone -->
+      <div class="upload-zone" id="drop-zone">
+        <!-- Input escondido dentro da zona para que o clique funcione -->
+        <input type="file" id="audio-input" name="audio"
+               accept=".wav,.mp3,audio/wav,audio/mpeg"
+               style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%">
+        <div class="upload-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <p class="upload-title">Clique para seleccionar</p>
+        <p class="upload-sub">ou arraste o ficheiro para aqui</p>
+      </div>
+
+      <!-- Pill com o nome do ficheiro escolhido (antes do envio) -->
+      <div id="file-pill" style="display:none;align-items:center;gap:10px;
+           padding:10px 12px;border:0.5px solid var(--border-tertiary);
+           border-radius:var(--radius-md);margin-top:12px;background:var(--bg-secondary);">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--teal-mid);flex-shrink:0;display:inline-block"></span>
+        <span id="pill-name" style="font-size:12px;color:var(--text-primary);flex:1"></span>
+        <span id="pill-size" style="font-size:11px;color:var(--text-tertiary)"></span>
+      </div>
+
+      <!-- Erro lado cliente (validação imediata) -->
+      <div id="error-box" class="error-box" style="display:none"></div>
+
+      {% if error %}
+      <!-- Erro lado servidor (fallback) -->
+      <div class="error-box">{{ error }}</div>
+      {% endif %}
+
+      <!-- Barra de progresso (visível durante o submit) -->
+      <div class="progress-wrap" id="progress-wrap">
+        <div class="progress-bg"><div class="progress-fill" id="progress-fill"></div></div>
+        <p class="progress-label" id="progress-label">A enviar...</p>
+      </div>
+
+      <button class="btn-primary" type="submit" id="btn-submit" disabled>
+        Analisar áudio
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var input     = document.getElementById('audio-input');
+  var dropZone  = document.getElementById('drop-zone');
+  var pill      = document.getElementById('file-pill');
+  var pillName  = document.getElementById('pill-name');
+  var pillSize  = document.getElementById('pill-size');
+  var errorBox  = document.getElementById('error-box');
+  var btnSubmit = document.getElementById('btn-submit');
+  var form      = document.getElementById('upload-form');
+  var progWrap  = document.getElementById('progress-wrap');
+  var progFill  = document.getElementById('progress-fill');
+  var progLabel = document.getElementById('progress-label');
+
+  var MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+  var ALLOWED   = ['audio/wav', 'audio/mpeg', 'audio/mp3', 'audio/x-wav'];
+  var ALLOWED_EXT = ['.wav', '.mp3'];
+
+  var STEPS = [
+    'A carregar ficheiro…',
+    'A gerar espectrograma…',
+    'A detectar silêncio…',
+    'A detectar clipping…',
+    'A analisar ruído…',
+    'A detectar eventos…',
+    'Concluído'
+  ];
+
+  function formatSize(bytes) {
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function getExt(name) {
+    var i = name.lastIndexOf('.');
+    return i >= 0 ? name.slice(i).toLowerCase() : '';
+  }
+
+  function validate(file) {
+    var ext = getExt(file.name);
+    var typeOk = ALLOWED.indexOf(file.type) !== -1 || ALLOWED_EXT.indexOf(ext) !== -1;
+    if (!typeOk) {
+      return 'Formato não suportado. Utilize um ficheiro WAV ou MP3.';
+    }
+    if (file.size > MAX_BYTES) {
+      return 'Ficheiro demasiado grande (' + formatSize(file.size) + '). O limite é 10 MB.';
+    }
+    return null; // sem erro
+  }
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+    pill.style.display = 'none';
+    btnSubmit.disabled = true;
+    // destaca a zona de upload a vermelho
+    dropZone.style.borderColor = 'var(--red-mid)';
+    dropZone.style.background  = 'var(--red-light)';
+  }
+
+  function clearError() {
+    errorBox.style.display = 'none';
+    errorBox.textContent   = '';
+    dropZone.style.borderColor = '';
+    dropZone.style.background  = '';
+  }
+
+  function showFile(file) {
+    clearError();
+    pillName.textContent = file.name;
+    pillSize.textContent = formatSize(file.size);
+    pill.style.display = 'flex';
+    btnSubmit.disabled = false;
+  }
+
+  function handleFile(file) {
+    var err = validate(file);
+    if (err) {
+      showError(err);
+    } else {
+      showFile(file);
+    }
+  }
+
+  /* clique normal no input */
+  input.addEventListener('change', function () {
+    if (input.files.length) handleFile(input.files[0]);
+  });
+
+  /* drag & drop */
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    dropZone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    dropZone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+    });
+  });
+  dropZone.addEventListener('drop', function (e) {
+    var files = e.dataTransfer.files;
+    if (files.length) {
+      try { input.files = files; } catch (err) {}
+      handleFile(files[0]);
+    }
+  });
+
+  /* segunda linha de defesa: bloqueia o submit se algo escapar */
+  form.addEventListener('submit', function (e) {
+    if (!input.files.length) { e.preventDefault(); return; }
+    var err = validate(input.files[0]);
+    if (err) { e.preventDefault(); showError(err); return; }
+
+    progWrap.style.display = 'block';
+    btnSubmit.disabled = true;
+    var pct = 0; var si = 0;
+    var iv = setInterval(function () {
+      pct = Math.min(pct + 15, 90);
+      progFill.style.width = pct + '%';
+      progLabel.textContent = STEPS[si] || STEPS[STEPS.length - 1];
+      si++;
+      if (pct >= 90) clearInterval(iv);
+    }, 300);
+  });
+}());
+</script>
+{% endblock %}
