@@ -16,18 +16,44 @@
   <div class="content">
     <div style="margin-bottom:12px">
       <p class="screen-title">{{ filename }}</p>
-      <p class="screen-sub" style="margin-bottom:0">ficheiro recebido com sucesso</p>
+      <p class="screen-sub" style="margin-bottom:0">
+        {{ duration }} · {{ sample_rate }} · {{ channels }}
+      </p>
     </div>
 
-    <div class="wip-block">
-      <div class="wip-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z"/>
-        </svg>
+    <div class="section-label">Espectrograma</div>
+    <div class="spectrogram-box">
+      <div class="spec-axis-y">
+        <span>8 kHz</span><span>4 kHz</span><span>1 kHz</span><span>0</span>
       </div>
-      <p class="wip-title">Análise em desenvolvimento</p>
-      <p class="wip-sub">A geração do espectrograma e a detecção de eventos estão a ser implementadas. Esta secção estará disponível em breve.</p>
-      <div class="wip-badge">WIP</div>
+      <canvas class="spec" id="spec-canvas" height="130"></canvas>
+
+      {% for a in annotations %}
+      <div class="annotation"
+           style="left:{{ a.left }};width:{{ a.width }};background:{{ a.color }}">
+      </div>
+      {% endfor %}
+
+      <div class="spec-axis-x">
+        <span>0 s</span><span>10 s</span><span>20 s</span><span>30 s</span><span>42 s</span>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#378ADD"></div>silêncio</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#E24B4A"></div>clipping</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#EF9F27"></div>evento sonoro</div>
+    </div>
+
+    <div class="section-label">Eventos detectados</div>
+    <div class="events-list">
+      {% for ev in events %}
+      <div class="event-row">
+        <span class="badge badge-{{ ev.type }}">{{ ev.badge }}</span>
+        <span class="event-desc">{{ ev.desc }}</span>
+        <span class="event-time">{{ ev.time }}</span>
+      </div>
+      {% endfor %}
     </div>
 
     <div class="row-btns">
@@ -36,4 +62,32 @@
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  var c   = document.getElementById('spec-canvas');
+  var ctx = c.getContext('2d');
+  var W   = c.offsetWidth * (window.devicePixelRatio || 1);
+  var H   = 130 * (window.devicePixelRatio || 1);
+  c.width = W; c.height = H;
+  var dark = matchMedia('(prefers-color-scheme:dark)').matches;
+  ctx.fillStyle = dark ? '#1a1a18' : '#f8f7f4';
+  ctx.fillRect(0, 0, W, H);
+  for (var x = 0; x < W; x++) {
+    for (var y = 0; y < H; y++) {
+      var v = Math.random() * 0.15
+            + Math.sin(x / W * Math.PI * 7) * 0.07
+            + Math.cos(y / H * Math.PI * 5) * 0.05;
+      v += Math.exp(-Math.pow(y / H - 0.72, 2) * 18) * 0.45 * (0.5 + Math.sin(x / W * Math.PI * 14) * 0.5);
+      v += Math.exp(-Math.pow(y / H - 0.42, 2) * 28) * 0.22 * (0.5 + Math.cos(x / W * Math.PI * 22) * 0.5);
+      v = Math.min(1, Math.max(0, v));
+      ctx.fillStyle = 'rgba('
+        + Math.round(v * (dark ? 160 : 110) + 20) + ','
+        + Math.round(v * (dark ? 70  : 50)  + 8)  + ','
+        + Math.round(v * (dark ? 190 : 210) + 30) + ',1)';
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}());
+</script>
 {% endblock %}

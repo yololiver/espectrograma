@@ -58,24 +58,8 @@ def analysis():
         return redirect(url_for("main.upload"))
 
     return render_template(
-        "analysis.html",
+        "analysis_current.html",
         filename=filename,
-        size_mb=session.get("size_mb", "?"),
-        duration="42 s",
-        sample_rate="44 100 Hz",
-        channels="mono",
-        events=[
-            {"type": "silence", "badge": "silêncio", "desc": "pausa longa", "time": "0:04–0:09", "color": "#378ADD"},
-            {"type": "clip",    "badge": "clipping",  "desc": "pico de distorção", "time": "0:14–0:16", "color": "#E24B4A"},
-            {"type": "event",   "badge": "evento",    "desc": "variação de energia",   "time": "0:22–0:24", "color": "#EF9F27"},
-            {"type": "silence", "badge": "silêncio",  "desc": "pausa longa",           "time": "0:32–0:38", "color": "#378ADD"},
-        ],
-        annotations=[
-            {"left": "9%",  "width": "11%", "color": "#378ADD"},
-            {"left": "34%", "width": "3%",  "color": "#E24B4A"},
-            {"left": "52%", "width": "4%",  "color": "#EF9F27"},
-            {"left": "76%", "width": "10%", "color": "#378ADD"},
-        ],
     )
 
 
@@ -86,16 +70,8 @@ def feedback():
         return redirect(url_for("main.upload"))
 
     return render_template(
-        "feedback.html",
+        "feedback_current.html",
         filename=filename,
-        size_mb=session.get("size_mb", "?"),
-        noise_level="nível moderado",
-        feedback_items=[
-            {"color": "#378ADD", "text": "O áudio tem duas pausas longas, aos 4 e aos 32 segundos. Podem ser momentos de hesitação ou troca de interlocutor."},
-            {"color": "#E24B4A", "text": "Existe um pico de distorção aos 14 segundos. O som ficou saturado, provavelmente por o microfone estar demasiado perto."},
-            {"color": "#EF9F27", "text": "Detectou-se uma variação súbita de volume aos 22 segundos — pode ser uma batida ou mudança abrupta de voz."},
-            {"color": "#888780", "text": "O ruído de fundo é moderado ao longo de toda a gravação. Pode ser filtrado com ferramentas de redução de ruído."},
-        ],
     )
 
 
