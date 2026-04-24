@@ -93,8 +93,8 @@ def analysis():
         spec_data=json.dumps(spec_data["spec"]),
         spec_duration=spec_data["duration"],
         spec_sr=spec_data["sample_rate"],
-        annotations=[],
-        events=[],
+        annotations=spec_data.get("annotations", []),
+        events=spec_data.get("events", []),
     )
 
 
@@ -136,35 +136,93 @@ def test_simple():
 
 
 def process_audio_file(file_path):
-    """Processa ficheiro de áudio e retorna dados de espectrograma."""
+    """Processa ficheiro de áudio e retorna dados de espectrograma e silêncio."""
     if not librosa:
         print("Librosa não está instalado")
         return None
     
     try:
         print(f"Carregando áudio de: {file_path}")
-        # Carrega o áudio
-        y, sr = librosa.load(file_path, sr=None)
+        # Carrega o áudio em mono para detecção consistente
+        y, sr = librosa.load(file_path, sr=None, mono=True)
         print(f"Áudio carregado: {len(y)} samples, {sr} Hz")
-        
+
+        duration = len(y) / sr
+        frame_length = 2048
+        hop_length = 512
+        top_db = 40
+
+        # Detecta segmentos não silenciosos e extrai silêncios
+        nonsilent = librosa.effects.split(
+            y,
+            top_db=top_db,
+            frame_length=frame_length,
+            hop_length=hop_length,
+        )
+
+        silence_segments = []
+        last_end = 0
+        for start_frame, end_frame in nonsilent:
+            start = last_end / sr
+            end = start_frame / sr
+            if end - start >= 0.12:
+                silence_segments.append({
+                    "start": round(start, 2),
+                    "end": round(end, 2),
+                    "duration": round(end - start, 2),
+                })
+            last_end = end_frame
+
+        if last_end < len(y):
+            start = last_end / sr
+            end = duration
+            if end - start >= 0.12:
+                silence_segments.append({
+                    "start": round(start, 2),
+                    "end": round(end, 2),
+                    "duration": round(end - start, 2),
+                })
+
         # Gera o espectrograma (STFT)
-        D = librosa.stft(y)
+        D = librosa.stft(y, n_fft=2048, hop_length=hop_length)
         S_db = librosa.power_to_db(np.abs(D) ** 2, ref=np.max)
-        
+
         # Normaliza para 0-255
         S_norm = ((S_db - S_db.min()) / (S_db.max() - S_db.min()) * 255).astype(np.uint8)
-        
+
         # Redimensiona para tamanho manejável se necessário
         if S_norm.shape[0] > 128:
             S_norm = S_norm[::S_norm.shape[0]//128, :]
-        
+
+        silence_events = []
+        silence_annotations = []
+        for segment in silence_segments:
+            start = segment["start"]
+            end = segment["end"]
+            left = (start / duration) * 100 if duration > 0 else 0
+            width = ((end - start) / duration) * 100 if duration > 0 else 0
+            silence_events.append({
+                "type": "silence",
+                "badge": "silêncio",
+                "desc": "Segmento de silêncio detectado",
+                "time": f"{start:.2f}s – {end:.2f}s",
+            })
+            silence_annotations.append({
+                "left": f"{left:.2f}%",
+                "width": f"{width:.2f}%",
+                "color": "rgba(0, 100, 200, 0.25)",
+            })
+
         print(f"Espectrograma gerado: {S_norm.shape}")
         return {
             "spec": S_norm.tolist(),
-            "duration": len(y) / sr,
+            "duration": duration,
             "sample_rate": sr,
             "n_fft": 2048,
-            "hop_length": 512,
+            "hop_length": hop_length,
+            "silence_segments": silence_segments,
+            "events": silence_events,
+            "annotations": silence_annotations,
         }
     except Exception as e:
         print(f"Erro ao processar áudio: {type(e).__name__}: {str(e)}")
