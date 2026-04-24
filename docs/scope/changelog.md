@@ -76,8 +76,17 @@ Primeiras versões de deteção (silêncio/clipping)
 ## Sem. 6 · 22–25 abr
 
 **Feito:**  
+Continuação da implementação do núcleo e melhoria da vizualização do espectrograma
+Demo interna:
+Upload + espectrograma funcional  
+Primeiras versões de deteção (silêncio/clipping)  
 **Bloqueou:**  
 **Próxima semana:**
+Submissão do relatório intercalar 
+Documentação completa de: 
+Introdução 
+Desenho do sistema
+
 
 ---
 
