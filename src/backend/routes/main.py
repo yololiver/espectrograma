@@ -187,7 +187,7 @@ def process_audio_file(file_path):
                 })
 
         # Detecta clipping por picos muito próximos de -1/1
-        clip_threshold = 0.995
+        clip_threshold = 0.9
         clipping_mask = np.abs(y) >= clip_threshold
         clipping_segments = []
         if clipping_mask.any():
@@ -197,12 +197,27 @@ def process_audio_file(file_path):
                 end_sample = clip_changes[i + 1]
                 start = start_sample / sr
                 end = end_sample / sr
-                if end - start >= 0.01:
+                if end - start >= 0.0001:  # Aumenta sensibilidade para detectar até mesmo clippings muito curtos
                     clipping_segments.append({
                         "start": round(start, 2),
                         "end": round(end, 2),
                         "duration": round(end - start, 2),
                     })
+
+        # Fundir segmentos de clipping adjacentes, sobrepostos ou com gap pequeno
+        merged_clipping_segments = []
+        if clipping_segments:
+            clipping_segments.sort(key=lambda x: x['start'])
+            current = clipping_segments[0]
+            for next_seg in clipping_segments[1:]:
+                if current['end'] + 0.05 >= next_seg['start']:  # Fundir se gap <= 0.05s
+                    current['end'] = max(current['end'], next_seg['end'])
+                    current['duration'] = round(current['end'] - current['start'], 2)
+                else:
+                    merged_clipping_segments.append(current)
+                    current = next_seg
+            merged_clipping_segments.append(current)
+        clipping_segments = merged_clipping_segments
 
         # Gera o espectrograma (STFT)
         D = librosa.stft(y, n_fft=2048, hop_length=hop_length)
