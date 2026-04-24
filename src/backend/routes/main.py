@@ -84,7 +84,11 @@ def analysis():
             filename=filename,
         )
 
-    has_clipping = any(ev.get('type') == 'clip' for ev in spec_data.get("events", []))
+    events = spec_data.get("events", [])
+    silence_events = [ev for ev in events if ev.get("type") == "silence"]
+    clipping_events = [ev for ev in events if ev.get("type") == "clip"]
+    other_events = [ev for ev in events if ev.get("type") not in {"silence", "clip"}]
+    has_clipping = bool(clipping_events)
 
     return render_template(
         "analysis.html",
@@ -96,7 +100,9 @@ def analysis():
         spec_duration=spec_data["duration"],
         spec_sr=spec_data["sample_rate"],
         annotations=spec_data.get("annotations", []),
-        events=spec_data.get("events", []),
+        silence_events=silence_events,
+        clipping_events=clipping_events,
+        other_events=other_events,
         has_clipping=has_clipping,
     )
 
@@ -219,6 +225,46 @@ def process_audio_file(file_path):
             merged_clipping_segments.append(current)
         clipping_segments = merged_clipping_segments
 
+        # Detectar variações abruptas de energia (aumentos súbitos de volume)
+        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=hop_length)[0]
+        energy_segments = []
+        for i in range(1, len(rms)):
+            if rms[i] > 2 * rms[i-1] and rms[i] > 0.05:  # Aumento abrupto e energia significativa
+                start = (i * hop_length) / sr
+                end = min((i + 1) * hop_length / sr, duration)
+                if end - start >= 0.01:
+                    energy_segments.append({
+                        "start": round(start, 2),
+                        "end": round(end, 2),
+                        "duration": round(end - start, 2),
+                    })
+
+        # Detectar mudanças significativas no espectro de frequência
+        centroid = librosa.feature.spectral_centroid(y=y, sr=sr, n_fft=2048, hop_length=hop_length)[0]
+        spectral_segments = []
+        for i in range(1, len(centroid)):
+            if abs(centroid[i] - centroid[i-1]) > 1500:  # Mudança significativa
+                start = (i * hop_length) / sr
+                end = min((i + 1) * hop_length / sr, duration)
+                if end - start >= 0.01:
+                    spectral_segments.append({
+                        "start": round(start, 2),
+                        "end": round(end, 2),
+                        "duration": round(end - start, 2),
+                    })
+
+        # Detectar sons transitórios (batidas, cliques, impactos)
+        onset_frames = librosa.onset.onset_detect(y=y, sr=sr, hop_length=hop_length)
+        transient_segments = []
+        for frame in onset_frames:
+            start = (frame * hop_length) / sr
+            end = min(start + 0.1, duration)  # Segmento curto
+            transient_segments.append({
+                "start": round(start, 2),
+                "end": round(end, 2),
+                "duration": round(end - start, 2),
+            })
+
         # Gera o espectrograma (STFT)
         D = librosa.stft(y, n_fft=2048, hop_length=hop_length)
         S_db = librosa.power_to_db(np.abs(D) ** 2, ref=np.max)
@@ -268,8 +314,65 @@ def process_audio_file(file_path):
                 "color": "rgba(255, 0, 0, 0.25)",
             })
 
-        all_events = silence_events + clipping_events
-        all_annotations = silence_annotations + clipping_annotations
+        energy_events = []
+        energy_annotations = []
+        for segment in energy_segments:
+            start = segment["start"]
+            end = segment["end"]
+            left = (start / duration) * 100 if duration > 0 else 0
+            width = ((end - start) / duration) * 100 if duration > 0 else 0
+            energy_events.append({
+                "type": "energy",
+                "badge": "energia",
+                "desc": "Variação abrupta de energia detectada",
+                "time": f"{start:.2f}s – {end:.2f}s",
+            })
+            energy_annotations.append({
+                "left": f"{left:.2f}%",
+                "width": f"{width:.2f}%",
+                "color": "rgba(255, 100, 0, 0.25)",
+            })
+
+        spectral_events = []
+        spectral_annotations = []
+        for segment in spectral_segments:
+            start = segment["start"]
+            end = segment["end"]
+            left = (start / duration) * 100 if duration > 0 else 0
+            width = ((end - start) / duration) * 100 if duration > 0 else 0
+            spectral_events.append({
+                "type": "spectral",
+                "badge": "espectro",
+                "desc": "Mudança significativa no espectro detectada",
+                "time": f"{start:.2f}s – {end:.2f}s",
+            })
+            spectral_annotations.append({
+                "left": f"{left:.2f}%",
+                "width": f"{width:.2f}%",
+                "color": "rgba(0, 255, 0, 0.25)",
+            })
+
+        transient_events = []
+        transient_annotations = []
+        for segment in transient_segments:
+            start = segment["start"]
+            end = segment["end"]
+            left = (start / duration) * 100 if duration > 0 else 0
+            width = ((end - start) / duration) * 100 if duration > 0 else 0
+            transient_events.append({
+                "type": "transient",
+                "badge": "transitório",
+                "desc": "Som transitório detectado",
+                "time": f"{start:.2f}s – {end:.2f}s",
+            })
+            transient_annotations.append({
+                "left": f"{left:.2f}%",
+                "width": f"{width:.2f}%",
+                "color": "rgba(255, 255, 0, 0.25)",
+            })
+
+        all_events = silence_events + clipping_events + energy_events + spectral_events + transient_events
+        all_annotations = silence_annotations + clipping_annotations + energy_annotations + spectral_annotations + transient_annotations
 
         print(f"Espectrograma gerado: {S_norm.shape}")
         return {

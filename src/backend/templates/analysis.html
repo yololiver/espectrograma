@@ -48,20 +48,55 @@
     </div>
 
     <div class="section-label">Eventos detectados</div>
-    <div class="events-list">
-      {% for ev in events %}
-      <div class="event-row">
-        <span class="badge badge-{{ ev.type }}">{{ ev.badge }}</span>
-        <span class="event-desc">{{ ev.desc }}</span>
-        <span class="event-time">{{ ev.time }}</span>
+
+    {% if silence_events %}
+    <div class="event-group">
+      <div class="event-group-label">Silêncio</div>
+      <div class="events-list">
+        {% for ev in silence_events %}
+        <div class="event-row event-row-silence">
+          <span class="badge badge-silence">{{ ev.badge }}</span>
+          <span class="event-desc">{{ ev.desc }}</span>
+          <span class="event-time">{{ ev.time }}</span>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-      {% if not has_clipping %}
-      <div class="event-row">
-        <span class="event-desc">Sem distorção detectada</span>
-      </div>
-      {% endif %}
     </div>
+    {% endif %}
+
+    {% if clipping_events %}
+    <div class="event-group">
+      <div class="event-group-label">Clipping</div>
+      <div class="events-list">
+        {% for ev in clipping_events %}
+        <div class="event-row event-row-clip">
+          <span class="badge badge-clip">{{ ev.badge }}</span>
+          <span class="event-desc">{{ ev.desc }}</span>
+          <span class="event-time">{{ ev.time }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="event-row event-row-no-clip">
+      <span class="event-desc">Sem distorção detectada</span>
+    </div>
+    {% endif %}
+
+    {% if other_events %}
+    <div class="event-group">
+      <div class="event-group-label">Outros eventos</div>
+      <div class="events-list">
+        {% for ev in other_events %}
+        <div class="event-row">
+          <span class="badge badge-{{ ev.type if ev.type in ['energy','spectral','transient'] else 'event' }}">{{ ev.badge }}</span>
+          <span class="event-desc">{{ ev.desc }}</span>
+          <span class="event-time">{{ ev.time }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <div class="row-btns">
       <a href="{{ url_for('main.reset') }}" class="btn-secondary">← novo ficheiro</a>
