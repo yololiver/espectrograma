@@ -183,6 +183,24 @@ def process_audio_file(file_path):
                     "duration": round(end - start, 2),
                 })
 
+        # Detecta clipping por picos muito próximos de -1/1
+        clip_threshold = 0.995
+        clipping_mask = np.abs(y) >= clip_threshold
+        clipping_segments = []
+        if clipping_mask.any():
+            clip_changes = np.flatnonzero(np.diff(clipping_mask.astype(int), prepend=0, append=0))
+            for i in range(0, len(clip_changes), 2):
+                start_sample = clip_changes[i]
+                end_sample = clip_changes[i + 1]
+                start = start_sample / sr
+                end = end_sample / sr
+                if end - start >= 0.01:
+                    clipping_segments.append({
+                        "start": round(start, 2),
+                        "end": round(end, 2),
+                        "duration": round(end - start, 2),
+                    })
+
         # Gera o espectrograma (STFT)
         D = librosa.stft(y, n_fft=2048, hop_length=hop_length)
         S_db = librosa.power_to_db(np.abs(D) ** 2, ref=np.max)
@@ -213,6 +231,28 @@ def process_audio_file(file_path):
                 "color": "rgba(0, 100, 200, 0.25)",
             })
 
+        clipping_events = []
+        clipping_annotations = []
+        for segment in clipping_segments:
+            start = segment["start"]
+            end = segment["end"]
+            left = (start / duration) * 100 if duration > 0 else 0
+            width = ((end - start) / duration) * 100 if duration > 0 else 0
+            clipping_events.append({
+                "type": "clip",
+                "badge": "clipping",
+                "desc": "Pico de saturação detectado",
+                "time": f"{start:.2f}s – {end:.2f}s",
+            })
+            clipping_annotations.append({
+                "left": f"{left:.2f}%",
+                "width": f"{width:.2f}%",
+                "color": "rgba(255, 0, 0, 0.25)",
+            })
+
+        all_events = silence_events + clipping_events
+        all_annotations = silence_annotations + clipping_annotations
+
         print(f"Espectrograma gerado: {S_norm.shape}")
         return {
             "spec": S_norm.tolist(),
@@ -221,8 +261,9 @@ def process_audio_file(file_path):
             "n_fft": 2048,
             "hop_length": hop_length,
             "silence_segments": silence_segments,
-            "events": silence_events,
-            "annotations": silence_annotations,
+            "clipping_segments": clipping_segments,
+            "events": all_events,
+            "annotations": all_annotations,
         }
     except Exception as e:
         print(f"Erro ao processar áudio: {type(e).__name__}: {str(e)}")
