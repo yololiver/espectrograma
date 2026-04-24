@@ -37,6 +37,7 @@ def upload():
 
     if request.method == "POST":
         file = request.files.get("audio")
+        is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
         if not file or file.filename == "":
             error = "Nenhum ficheiro selecionado."
@@ -55,7 +56,12 @@ def upload():
             session["filename"] = filename
             session["size_mb"] = size_mb
 
+            if is_ajax:
+                return jsonify({"status": "ok", "redirect": url_for("main.analysis")})
             return redirect(url_for("main.analysis"))
+
+        if is_ajax:
+            return jsonify({"status": "error", "message": error}), 400
 
     return render_template("upload.html", error=error)
 
@@ -66,9 +72,29 @@ def analysis():
     if not filename:
         return redirect(url_for("main.upload"))
 
+    upload_folder = current_app.config["UPLOAD_FOLDER"]
+    file_path = os.path.join(upload_folder, filename)
+    if not os.path.exists(file_path):
+        return redirect(url_for("main.upload"))
+
+    spec_data = process_audio_file(file_path)
+    if not spec_data:
+        return render_template(
+            "analysis_current.html",
+            filename=filename,
+        )
+
     return render_template(
-        "analysis_current.html",
+        "analysis.html",
         filename=filename,
+        duration=f"{spec_data['duration']:.1f} s",
+        sample_rate=f"{spec_data['sample_rate']} Hz",
+        channels="stereo",
+        spec_data=json.dumps(spec_data["spec"]),
+        spec_duration=spec_data["duration"],
+        spec_sr=spec_data["sample_rate"],
+        annotations=[],
+        events=[],
     )
 
 

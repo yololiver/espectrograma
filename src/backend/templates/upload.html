@@ -85,12 +85,9 @@
   var ALLOWED_EXT = ['.wav', '.mp3'];
 
   var STEPS = [
-    'A carregar ficheiro…',
-    'A gerar espectrograma…',
-    'A detectar silêncio…',
-    'A detectar clipping…',
-    'A analisar ruído…',
-    'A detectar eventos…',
+    'A enviar ficheiro…',
+    'A processar ficheiro…',
+    'A concluir…',
     'Concluído'
   ];
 
@@ -175,22 +172,98 @@
     }
   });
 
+  function setProgress(percent, label) {
+    progFill.style.width = percent + '%';
+    progLabel.textContent = label;
+  }
+
+  function showProgress() {
+    progWrap.style.display = 'block';
+    setProgress(0, STEPS[0]);
+  }
+
+  function hideProgress() {
+    progWrap.style.display = 'none';
+  }
+
   /* segunda linha de defesa: bloqueia o submit se algo escapar */
   form.addEventListener('submit', function (e) {
-    if (!input.files.length) { e.preventDefault(); return; }
-    var err = validate(input.files[0]);
-    if (err) { e.preventDefault(); showError(err); return; }
+    e.preventDefault();
 
-    progWrap.style.display = 'block';
+    if (!input.files.length) {
+      showError('Nenhum ficheiro selecionado.');
+      return;
+    }
+
+    var file = input.files[0];
+    var err = validate(file);
+    if (err) {
+      showError(err);
+      return;
+    }
+
+    clearError();
     btnSubmit.disabled = true;
-    var pct = 0; var si = 0;
-    var iv = setInterval(function () {
-      pct = Math.min(pct + 15, 90);
-      progFill.style.width = pct + '%';
-      progLabel.textContent = STEPS[si] || STEPS[STEPS.length - 1];
-      si++;
-      if (pct >= 90) clearInterval(iv);
-    }, 300);
+    showProgress();
+
+    var formData = new FormData();
+    formData.append('audio', file);
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', form.action, true);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    var serverInterval;
+    xhr.upload.addEventListener('progress', function (event) {
+      if (event.lengthComputable) {
+        var percent = Math.round((event.loaded / event.total) * 70);
+        setProgress(percent, STEPS[0]);
+      }
+    });
+
+    xhr.upload.addEventListener('load', function () {
+      setProgress(72, STEPS[1]);
+      var current = 72;
+      serverInterval = setInterval(function () {
+        current = Math.min(current + 2, 94);
+        setProgress(current, STEPS[1]);
+      }, 220);
+    });
+
+    xhr.addEventListener('load', function () {
+      if (serverInterval) {
+        clearInterval(serverInterval);
+      }
+
+      try {
+        var response = JSON.parse(xhr.responseText);
+      } catch (err) {
+        showError('Ocorreu um erro ao processar o upload.');
+        btnSubmit.disabled = false;
+        hideProgress();
+        return;
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300 && response.status === 'ok') {
+        setProgress(100, STEPS[2]);
+        window.location.href = response.redirect;
+      } else {
+        showError(response.message || 'Ocorreu um erro no servidor.');
+        btnSubmit.disabled = false;
+        hideProgress();
+      }
+    });
+
+    xhr.addEventListener('error', function () {
+      if (serverInterval) {
+        clearInterval(serverInterval);
+      }
+      showError('Falha na ligação. Tente novamente.');
+      btnSubmit.disabled = false;
+      hideProgress();
+    });
+
+    xhr.send(formData);
   });
 }());
 </script>
