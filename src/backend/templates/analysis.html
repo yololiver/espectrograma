@@ -56,6 +56,11 @@
         <span class="event-time">{{ ev.time }}</span>
       </div>
       {% endfor %}
+      {% if not has_clipping %}
+      <div class="event-row">
+        <span class="event-desc">Sem distorção detectada</span>
+      </div>
+      {% endif %}
     </div>
 
     <div class="row-btns">

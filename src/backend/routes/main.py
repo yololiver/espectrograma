@@ -84,6 +84,8 @@ def analysis():
             filename=filename,
         )
 
+    has_clipping = any(ev.get('type') == 'clip' for ev in spec_data.get("events", []))
+
     return render_template(
         "analysis.html",
         filename=filename,
@@ -95,6 +97,7 @@ def analysis():
         spec_sr=spec_data["sample_rate"],
         annotations=spec_data.get("annotations", []),
         events=spec_data.get("events", []),
+        has_clipping=has_clipping,
     )
 
 
@@ -285,6 +288,8 @@ def test_analysis():
         if not spec_data:
             return jsonify({"error": "Erro ao processar áudio"}), 500
         
+        has_clipping = any(ev.get('type') == 'clip' for ev in spec_data.get("events", []))
+        
         return render_template(
             "analysis.html",
             filename="file_example_MP3_700KB.mp3",
@@ -294,6 +299,9 @@ def test_analysis():
             spec_data=json.dumps(spec_data["spec"]),
             spec_duration=spec_data['duration'],
             spec_sr=spec_data['sample_rate'],
+            annotations=spec_data.get("annotations", []),
+            events=spec_data.get("events", []),
+            has_clipping=has_clipping,
         )
     except Exception as e:
         import traceback
