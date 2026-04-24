@@ -35,9 +35,59 @@
 ## Como instalar e correr
 
 ### Pré-requisitos
----
+
+- **Python** 3.8 ou superior
+- **pip** (package manager do Python)
+- **Git** (para clonar o repositório)
+
+### Dependências
+
+As dependências do projeto estão listadas em [`requirements.txt`](requirements.txt) e incluem:
+- Flask 2.3+ — Framework web para a API backend
+- librosa 0.10+ — Processamento e análise de áudio
+- SciPy e NumPy — Cálculos científicos
+
 ### Instalação
----
+
+1. **Clonar o repositório**
+   ```bash
+   git clone https://github.com/yololiver/espectrograma.git
+   cd espectrograma
+   ```
+
+2. **Criar um ambiente virtual (recomendado)**
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Ativar o ambiente virtual**
+   
+   **Windows:**
+   ```bash
+   venv\Scripts\activate
+   ```
+   
+   **macOS/Linux:**
+   ```bash
+   source venv/bin/activate
+   ```
+
+4. **Instalar as dependências do `requirements.txt`**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. **Configurar variáveis de ambiente** (opcional)
+   - Criar um ficheiro `.env` na raiz do projeto (usar `.env.example` como referência se disponível)
+   - As configurações padrão funcionam para desenvolvimento local
+
+### Executar a aplicação
+
+```bash
+python src/run.py
+```
+
+A aplicação estará disponível em **http://127.0.0.1:5000**
 
 ## Decisões de arquitectura principais
 
@@ -63,8 +113,9 @@
 | Ferramenta | Para que foi usada |
 |-----------|-------------------|
 | Claude (Anthropic) | Apoio na redacção da documentação (requisitos MoSCoW, arquitectura C4, gestão de riscos, README) |
+| GitHub Copilot | Assistência no desenvolvimento de código, geração de templates, documentação de código-fonte |
 
 
 ---
 
-*Última actualização: Abril 2026 · Sem. 3–4*
+
