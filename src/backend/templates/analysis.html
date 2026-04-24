@@ -19,6 +19,11 @@
       <p class="screen-sub" style="margin-bottom:0">
         {{ duration }} · {{ sample_rate }} · {{ channels }}
       </p>
+      {% if background_noise %}
+      <p class="screen-sub" style="margin-bottom:0">
+        Ruído de fundo: <strong>{{ background_noise }}</strong>
+      </p>
+      {% endif %}
     </div>
 
     <div class="section-label">Espectrograma</div>

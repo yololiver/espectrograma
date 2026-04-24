@@ -89,6 +89,7 @@ def analysis():
     clipping_events = [ev for ev in events if ev.get("type") == "clip"]
     other_events = [ev for ev in events if ev.get("type") not in {"silence", "clip"}]
     has_clipping = bool(clipping_events)
+    background_noise = spec_data.get("background_noise", "desconhecido")
 
     return render_template(
         "analysis.html",
@@ -104,6 +105,7 @@ def analysis():
         clipping_events=clipping_events,
         other_events=other_events,
         has_clipping=has_clipping,
+        background_noise=background_noise,
     )
 
 
@@ -227,6 +229,16 @@ def process_audio_file(file_path):
 
         # Detectar variações abruptas de energia (aumentos súbitos de volume)
         rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=hop_length)[0]
+        noise_floor = np.percentile(rms, 10) if len(rms) else 0.0
+        peak_energy = np.max(rms) if len(rms) else 1e-9
+        noise_ratio = noise_floor / max(peak_energy, 1e-9)
+        if noise_ratio < 0.015:
+            background_noise = "baixo"
+        elif noise_ratio < 0.05:
+            background_noise = "moderado"
+        else:
+            background_noise = "alto"
+
         energy_segments = []
         for i in range(1, len(rms)):
             if rms[i] > 2 * rms[i-1] and rms[i] > 0.05:  # Aumento abrupto e energia significativa
@@ -385,6 +397,7 @@ def process_audio_file(file_path):
             "clipping_segments": clipping_segments,
             "events": all_events,
             "annotations": all_annotations,
+            "background_noise": background_noise,
         }
     except Exception as e:
         print(f"Erro ao processar áudio: {type(e).__name__}: {str(e)}")
@@ -420,6 +433,7 @@ def test_analysis():
             annotations=spec_data.get("annotations", []),
             events=spec_data.get("events", []),
             has_clipping=has_clipping,
+            background_noise=spec_data.get("background_noise", "desconhecido"),
         )
     except Exception as e:
         import traceback
