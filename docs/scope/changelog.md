@@ -93,16 +93,27 @@ Desenho do sistema
 ## Sem. 7 · 28 abr–2 mai · DEMO INTERNA
 
 **Feito:**  
+Demo interna: upload, espectrograma, deteção de silêncio/clipping/ruído e eventos com filtros na UI  
+Anotação visual com ≥ 5 tipos de eventos no espectrograma  
 **Bloqueou:**  
-**Próxima semana:**
+Nada  
+**Próxima semana:**  
+Feedback automático (M08); relatório intercalar; diagramas C4
 
 ---
 
 ## Sem. 8 · 5–6 mai · INTERCALAR
 
 **Feito:**  
+Feedback em linguagem simples (≥ 3 observações, requisito M08)  
+Refactor: `backend/services/` (análise + feedback); testes pytest de fumo  
+Diagramas C4 e modelo de dados (`docs/architecture/*.svg`)  
+Relatório intercalar (`docs/report/relatorio-intercalar.pdf`)  
+README alinhado com stack real (Flask + Jinja2)  
 **Bloqueou:**  
-**Próxima semana:**
+Nada  
+**Próxima semana:**  
+Indicador de progresso no upload; refinamento da UI; testes com áudios de referência
 
 ---
 

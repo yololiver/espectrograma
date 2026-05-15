@@ -27,16 +27,13 @@
     </div>
 
     <div class="section-label">Espectrograma</div>
-    <div class="spectrogram-box">
+    <div class="spectrogram-box" id="spectrogram-box">
         <div class="spec-axis-y" id="spec-axis-y">
         <span>20 kHz</span><span>15 kHz</span><span>10 kHz</span><span>5 kHz</span><span>0</span>
       </div>
       <div class="spec-canvas-container">
-        <!-- Canvas base: espetrograma colorido original (referência) -->
         <canvas class="spec spec-base" id="spec-canvas-base" height="220"></canvas>
-        
-        <!-- Canvas overlay: espetrograma em tons de cinza -->
-        <canvas class="spec spec-overlay" id="spec-canvas-overlay" height="220"></canvas>
+        <canvas class="spec spec-overlay" id="spec-canvas-overlay" height="220" aria-hidden="true"></canvas>
       </div>
 
       {% for a in annotations %}
@@ -60,6 +57,7 @@
 
     <div style="margin-bottom: 14px;">
       <div class="section-label">Filtrar eventos</div>
+      <p class="filter-hint">Desactive tipos para escurecer o espectrograma — só os seleccionados mantêm cor.</p>
       <div class="event-filters">
         <button class="filter-btn active filter-silence" data-filter="silence" title="Mostrar silêncios">
           <span class="filter-btn-dot" style="background: rgba(0, 100, 200, 0.8);"></span>
@@ -144,22 +142,28 @@
 
 <script>
 (function () {
-  var cBase   = document.getElementById('spec-canvas-base');
+  var cBase = document.getElementById('spec-canvas-base');
   var cOverlay = document.getElementById('spec-canvas-overlay');
   var ctxBase = cBase.getContext('2d');
   var ctxOverlay = cOverlay.getContext('2d');
-  
-  var W   = cBase.offsetWidth * (window.devicePixelRatio || 1);
-  var H   = 220 * (window.devicePixelRatio || 1);
-  cBase.width = W; cBase.height = H;
-  cOverlay.width = W; cOverlay.height = H;
-  
-  var dark = matchMedia('(prefers-color-scheme:dark)').matches;
-  
+  var specBox = document.getElementById('spectrogram-box');
+
+  var W = cBase.offsetWidth * (window.devicePixelRatio || 1);
+  var H = 220 * (window.devicePixelRatio || 1);
+  cBase.width = W;
+  cBase.height = H;
+  cOverlay.width = W;
+  cOverlay.height = H;
+
   var specDataStr = '{{ spec_data | safe }}';
   var specDuration = {{ spec_duration | default(42) }};
   var specSr = {{ spec_sr | default(44100) }};
   var useRealData = specDataStr && specDataStr.length > 2;
+
+  var colorImageData = null;
+  var grayImageData = null;
+  var rendered = false;
+  var ALL_FILTERS = ['silence', 'clip', 'energy', 'spectral', 'transient'];
   
   // Atualiza eixo X com tempos reais
   var axisX = document.getElementById('spec-axis-x');
@@ -197,6 +201,88 @@
     }
   }
   
+  function storeSpectrogramBuffers() {
+    colorImageData = ctxBase.getImageData(0, 0, W, H);
+    grayImageData = ctxBase.createImageData(W, H);
+    for (var i = 0; i < colorImageData.data.length; i += 4) {
+      var r = colorImageData.data[i];
+      var g = colorImageData.data[i + 1];
+      var b = colorImageData.data[i + 2];
+      var gray = Math.round((0.299 * r + 0.587 * g + 0.114 * b) * 0.45);
+      grayImageData.data[i] = gray;
+      grayImageData.data[i + 1] = gray;
+      grayImageData.data[i + 2] = gray;
+      grayImageData.data[i + 3] = 255;
+    }
+  }
+
+  function parsePercent(value) {
+    return parseFloat(String(value).replace('%', '')) || 0;
+  }
+
+  function paintColorColumns(displayData, x0, x1) {
+    for (var x = x0; x < x1; x++) {
+      for (var y = 0; y < H; y++) {
+        var idx = (y * W + x) * 4;
+        displayData.data[idx] = colorImageData.data[idx];
+        displayData.data[idx + 1] = colorImageData.data[idx + 1];
+        displayData.data[idx + 2] = colorImageData.data[idx + 2];
+        displayData.data[idx + 3] = 255;
+      }
+    }
+  }
+
+  function showDefaultSpectrogramView() {
+    if (!colorImageData) return;
+    ctxBase.putImageData(colorImageData, 0, 0);
+    cOverlay.style.display = 'block';
+    cOverlay.style.opacity = '0.85';
+  }
+
+  function applySpectrogramEventFilter(activeFilters) {
+    if (!colorImageData || !grayImageData) return;
+
+    var allActive = ALL_FILTERS.every(function (t) { return activeFilters.has(t); });
+    var annotations = document.querySelectorAll('.annotation');
+
+    if (allActive) {
+      specBox.classList.remove('is-filtering');
+      showDefaultSpectrogramView();
+      annotations.forEach(function (ann) {
+        ann.classList.remove('is-visible', 'dim', 'highlight');
+      });
+      return;
+    }
+
+    specBox.classList.add('is-filtering');
+    cOverlay.style.display = 'none';
+    var displayData = ctxBase.createImageData(W, H);
+    displayData.data.set(grayImageData.data);
+
+    var canvasLeft = cBase.getBoundingClientRect().left;
+    var canvasWidth = cBase.getBoundingClientRect().width || cBase.offsetWidth;
+
+    annotations.forEach(function (ann) {
+      var eventType = ann.dataset.eventType;
+      var isActive = activeFilters.has(eventType);
+      ann.classList.toggle('is-visible', isActive);
+      ann.classList.remove('dim', 'highlight');
+
+      if (!isActive) return;
+
+      var annRect = ann.getBoundingClientRect();
+      var relLeft = annRect.left - canvasLeft;
+      var relRight = annRect.right - canvasLeft;
+      var x0 = Math.max(0, Math.floor((relLeft / canvasWidth) * W));
+      var x1 = Math.min(W, Math.ceil((relRight / canvasWidth) * W));
+      if (x1 <= x0) x1 = Math.min(W, x0 + 1);
+
+      paintColorColumns(displayData, x0, x1);
+    });
+
+    ctxBase.putImageData(displayData, 0, 0);
+  }
+
   if (useRealData) {
     try {
       var specData = JSON.parse(specDataStr);
@@ -247,133 +333,113 @@
       }
 
       function toGrayscale(colorObj) {
-        // Convierte RGB a escala de grises usando luminancia
         var gray = Math.round(0.299 * colorObj.r + 0.587 * colorObj.g + 0.114 * colorObj.b);
         return 'rgb(' + gray + ', ' + gray + ', ' + gray + ')';
       }
 
-      // ===== CANVAS BASE: Espectrograma colorido COMPLETO (referência) =====
-      for (var fi = 0; fi < numFreqBins; fi++) {
-        var freq = specData[fi];
-        var yPos = (numFreqBins - 1 - fi) * freqHeight;
-        for (var ti = 0; ti < numTimeBins; ti++) {
-          var magnitude = freq[ti] / 255; // Magnitude completa sin reducción
-          var colorObj = palette(magnitude);
-          ctxBase.fillStyle = 'rgb(' + colorObj.r + ', ' + colorObj.g + ', ' + colorObj.b + ')';
-          ctxBase.fillRect(ti * timeWidth, yPos, timeWidth, freqHeight);
-        }
-      }
-
-      // ===== CANVAS OVERLAY: Espectrograma en escala de grises SEMI-TRANSPARENTE =====
       for (var fi = 0; fi < numFreqBins; fi++) {
         var freq = specData[fi];
         var yPos = (numFreqBins - 1 - fi) * freqHeight;
         for (var ti = 0; ti < numTimeBins; ti++) {
           var magnitude = freq[ti] / 255;
           var colorObj = palette(magnitude);
-          ctxOverlay.fillStyle = toGrayscale(colorObj);
-          ctxOverlay.fillRect(ti * timeWidth, yPos, timeWidth, freqHeight);
+          ctxBase.fillStyle = 'rgb(' + colorObj.r + ', ' + colorObj.g + ', ' + colorObj.b + ')';
+          ctxBase.fillRect(ti * timeWidth, yPos, timeWidth, freqHeight);
         }
       }
-      
-      // Aplicar opacidad al canvas overlay reduciendo su alpha
+
+      storeSpectrogramBuffers();
+
+      for (var fi2 = 0; fi2 < numFreqBins; fi2++) {
+        var freq2 = specData[fi2];
+        var yPos2 = (numFreqBins - 1 - fi2) * freqHeight;
+        for (var ti2 = 0; ti2 < numTimeBins; ti2++) {
+          var magnitude2 = freq2[ti2] / 255;
+          var colorObj2 = palette(magnitude2);
+          ctxOverlay.fillStyle = toGrayscale(colorObj2);
+          ctxOverlay.fillRect(ti2 * timeWidth, yPos2, timeWidth, freqHeight);
+        }
+      }
       ctxOverlay.globalAlpha = 0.85;
-      ctxOverlay.fillStyle = 'rgba(255,255,255,0)'; // Este fillRect es solo para aplicar la opacidad global
-      
-      return;
+      rendered = true;
     } catch (e) {
       console.log('Erro ao renderizar espectrograma, usando simulação:', e);
     }
   }
-  
-  // Simulação (si no hay datos reales)
-  ctxBase.fillStyle = '#CCCCCC';
-  ctxBase.fillRect(0, 0, W, H);
-  for (var x = 0; x < W; x++) {
-    for (var y = 0; y < H; y++) {
-      var v = Math.random() * 0.15 + Math.sin(x / W * Math.PI * 7) * 0.07 + Math.cos(y / H * Math.PI * 5) * 0.05;
-      v += Math.exp(-Math.pow(y / H - 0.72, 2) * 18) * 0.45 * (0.5 + Math.sin(x / W * Math.PI * 14) * 0.5);
-      v += Math.exp(-Math.pow(y / H - 0.42, 2) * 28) * 0.22 * (0.5 + Math.cos(x / W * Math.PI * 22) * 0.5);
-      v = Math.min(1, Math.max(0, v));
-      
-      var r, g, b;
-      if (v < 0.167) {
-        var t = v / 0.167;
-        r = 0; g = Math.round(100 + t * 155); b = Math.round(200 + t * 55);
-      } else if (v < 0.333) {
-        var t = (v - 0.167) / 0.167;
-        r = 0; g = Math.round(255 - t * 100); b = Math.round(255 - t * 255);
-      } else if (v < 0.5) {
-        var t = (v - 0.333) / 0.167;
-        r = Math.round(t * 255); g = 255; b = 0;
-      } else if (v < 0.667) {
-        var t = (v - 0.5) / 0.167;
-        r = 255; g = Math.round(255 - t * 165); b = 0;
-      } else if (v < 0.833) {
-        var t = (v - 0.667) / 0.167;
-        r = 255; g = Math.round(90 - t * 90); b = 0;
-      } else {
-        var t = (v - 0.833) / 0.167;
-        r = 255; g = 0; b = Math.round(t * 100);
-      }
-      
-      ctxBase.fillStyle = 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
-      ctxBase.fillRect(x, y, 1, 1);
-      
-      var gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-      ctxOverlay.fillStyle = 'rgb(' + gray + ', ' + gray + ', ' + gray + ')';
-      ctxOverlay.fillRect(x, y, 1, 1);
-    }
-  }
-  
-  ctxOverlay.globalAlpha = 0.85;
-}());
 
-// Event filter system
-(function() {
-  const filterBtns = document.querySelectorAll('.filter-btn');
-  const annotations = document.querySelectorAll('.annotation');
-  const eventRows = document.querySelectorAll('.event-row[data-event-type]');
+  if (!rendered) {
+    ctxBase.fillStyle = '#CCCCCC';
+    ctxBase.fillRect(0, 0, W, H);
+    ctxOverlay.clearRect(0, 0, W, H);
+    for (var x = 0; x < W; x++) {
+      for (var y = 0; y < H; y++) {
+        var v = Math.random() * 0.15 + Math.sin(x / W * Math.PI * 7) * 0.07 + Math.cos(y / H * Math.PI * 5) * 0.05;
+        v += Math.exp(-Math.pow(y / H - 0.72, 2) * 18) * 0.45 * (0.5 + Math.sin(x / W * Math.PI * 14) * 0.5);
+        v += Math.exp(-Math.pow(y / H - 0.42, 2) * 28) * 0.22 * (0.5 + Math.cos(x / W * Math.PI * 22) * 0.5);
+        v = Math.min(1, Math.max(0, v));
+
+        var r, g, b;
+        if (v < 0.167) {
+          var t = v / 0.167;
+          r = 0; g = Math.round(100 + t * 155); b = Math.round(200 + t * 55);
+        } else if (v < 0.333) {
+          var t = (v - 0.167) / 0.167;
+          r = 0; g = Math.round(255 - t * 100); b = Math.round(255 - t * 255);
+        } else if (v < 0.5) {
+          var t = (v - 0.333) / 0.167;
+          r = Math.round(t * 255); g = 255; b = 0;
+        } else if (v < 0.667) {
+          var t = (v - 0.5) / 0.167;
+          r = 255; g = Math.round(255 - t * 165); b = 0;
+        } else if (v < 0.833) {
+          var t = (v - 0.667) / 0.167;
+          r = 255; g = Math.round(90 - t * 90); b = 0;
+        } else {
+          var t = (v - 0.833) / 0.167;
+          r = 255; g = 0; b = Math.round(t * 100);
+        }
+
+        ctxBase.fillStyle = 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
+        ctxBase.fillRect(x, y, 1, 1);
+
+        var graySim = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+        ctxOverlay.fillStyle = 'rgb(' + graySim + ', ' + graySim + ', ' + graySim + ')';
+        ctxOverlay.fillRect(x, y, 1, 1);
+      }
+    }
+    ctxOverlay.globalAlpha = 0.85;
+    storeSpectrogramBuffers();
+  }
+
+  var filterBtns = document.querySelectorAll('.filter-btn');
+  var eventRows = document.querySelectorAll('.event-row[data-event-type]');
 
   function updateFilters() {
-    const activeFilters = new Set();
-    filterBtns.forEach(btn => {
+    var activeFilters = new Set();
+    filterBtns.forEach(function (btn) {
       if (btn.classList.contains('active')) {
         activeFilters.add(btn.dataset.filter);
       }
     });
 
-    // Update annotations
-    annotations.forEach(ann => {
-      const eventType = ann.dataset.eventType;
-      if (activeFilters.has(eventType)) {
-        ann.classList.remove('dim');
-        ann.classList.add('highlight');
-      } else {
-        ann.classList.add('dim');
-        ann.classList.remove('highlight');
-      }
-    });
+    applySpectrogramEventFilter(activeFilters);
 
-    // Update event rows
-    eventRows.forEach(row => {
-      const eventType = row.dataset.eventType;
-      if (activeFilters.has(eventType)) {
-        row.classList.remove('dim');
-      } else {
-        row.classList.add('dim');
-      }
+    eventRows.forEach(function (row) {
+      var eventType = row.dataset.eventType;
+      row.classList.toggle('dim', !activeFilters.has(eventType));
     });
   }
 
-  filterBtns.forEach(btn => {
-    btn.addEventListener('click', function() {
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var activeCount = document.querySelectorAll('.filter-btn.active').length;
+      if (this.classList.contains('active') && activeCount <= 1) return;
       this.classList.toggle('active');
       updateFilters();
     });
   });
 
-  // Initialize filters
+  showDefaultSpectrogramView();
   updateFilters();
 })();
 

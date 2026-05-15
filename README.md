@@ -26,8 +26,8 @@
 - [x] Análise de ruído de fundo — classificação em "baixo", "moderado" ou "alto"
 - [x] Deteção de eventos sonoros — variações de energia, mudanças espectrais e sons transitórios
 - [x] Anotação visual de eventos — ≥ 3 tipos com cores distintas no espectrograma/timeline
-- [ ] Feedback automático em linguagem simples — ≥ 3 observações sem termos técnicos
-- [ ] Interface web utilizável — fluxo completo sem formação prévia
+- [x] Feedback automático em linguagem simples — ≥ 3 observações sem termos técnicos
+- [x] Interface web utilizável — fluxo completo (upload → análise → feedback)
 - [ ] Todas as funcionalidades do MVP — implementação prevista para as semanas 5–12 conforme calendário
 
 ---
@@ -89,14 +89,22 @@ python src/run.py
 
 A aplicação estará disponível em **http://127.0.0.1:5000**
 
+### Testes (opcional)
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
 ## Decisões de arquitectura principais
 
 | Decisão | Alternativa considerada | Razão da escolha |
 |---------|------------------------|-----------------|
-| Flask (backend) | FastAPI | Simplicidade e familiaridade; overhead mínimo para uma API sem requisitos de alta concorrência no MVP |
-| React + Vite (frontend) | Vue.js | Ecossistema mais amplo; compatibilidade com Three.js e Web Audio API bem documentada |
+| Flask (backend + UI) | FastAPI + SPA separado | Monólito simples: rotas, templates Jinja2 e sessão num único processo |
+| Templates Jinja2 + Canvas | React + Vite | Menos complexidade de integração no MVP; espectrograma renderizado em `<canvas>` com dados do servidor |
 | librosa (processamento de áudio) | essentia, torchaudio | API de alto nível orientada a análise; documentação extensa; não requer GPU |
 | Espectrograma via Canvas API | biblioteca de charting (Chart.js, Plotly) | Controlo total sobre a renderização e anotação visual sem dependências adicionais |
+| Serviços em `backend/services/` | Toda a lógica nas rotas | Separação entre HTTP e análise/feedback; facilita testes com pytest |
 
 ---
 

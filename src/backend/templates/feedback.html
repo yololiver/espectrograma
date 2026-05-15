@@ -15,23 +15,53 @@
 
   <div class="content">
     <p class="screen-title">Resumo da análise</p>
-    <p class="screen-sub">{{ filename }} · {{ size_mb }} MB</p>
+    <p class="screen-sub">{{ filename }} · {{ size_mb }} MB · {{ stats.duration_label }}</p>
+
+    <div class="verdict verdict--{{ verdict.tone }}">
+      <p class="verdict-label">{{ verdict.label }}</p>
+      <p class="verdict-detail">{{ verdict.detail }}</p>
+    </div>
+
+    <div class="section-label">Em números</div>
+    <div class="stats-grid">
+      {% for h in highlights %}
+      <div class="stat-card{% if h.warn %} stat-card--warn{% endif %}">
+        <span class="stat-value">{{ h.value }}</span>
+        <span class="stat-label">{{ h.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
 
     <div class="section-label">Ruído de fundo</div>
-    <div class="noise-pill">{{ noise_level }}</div>
+    <div class="noise-pill {{ noise_pill_class }}">{{ noise_level }}</div>
 
     <div class="section-label">O que foi encontrado</div>
     <div class="feedback-card">
       {% for item in feedback_items %}
       <div class="feedback-item">
+        <div class="feedback-icon feedback-icon--{{ item.category }}">
+          {% if item.category == 'ruido' %}◌
+          {% elif item.category == 'silencio' %}‖
+          {% elif item.category == 'distorcao' %}!
+          {% elif item.category == 'actividade' %}~
+          {% else %}·
+          {% endif %}
+        </div>
+        <div class="feedback-body">
+          <p class="feedback-title">{{ item.title }}</p>
+          <p class="feedback-text">{{ item.text }}</p>
+        </div>
         <div class="feedback-dot" style="background:{{ item.color }}"></div>
-        {{ item.text }}
       </div>
       {% endfor %}
     </div>
 
+    <div class="feedback-tip">
+      <p>Quer ver <strong>onde</strong> cada coisa acontece? O espectrograma mostra pausas, picos e variações com cores no tempo.</p>
+    </div>
+
     <div class="row-btns">
-      <a href="{{ url_for('main.analysis') }}" class="btn-secondary">← espectrograma</a>
+      <a href="{{ url_for('main.analysis') }}" class="btn-accent">ver espectrograma →</a>
       <a href="{{ url_for('main.reset') }}" class="btn-secondary">novo ficheiro</a>
     </div>
   </div>

@@ -6,9 +6,11 @@ Esta pasta contém os artefactos de arquitectura do projecto.
 
 | Ficheiro | Descrição | Quando |
 |---------|-----------|--------|
-| `c4-context.png` | C4 Nível 1 — sistema, utilizadores, sistemas externos | Até à Entrega 1 |
-| `c4-containers.png` | C4 Nível 2 — contentores principais e tecnologias | Até à Entrega 1 |
-| `data-model.png` | Modelo de dados (ER, schema, ou equivalente) | Até à Entrega 1 |
+| `c4-context.svg` / `.png` | C4 Nível 1 — sistema, utilizadores, sistemas externos | Até à Entrega 1 |
+| `c4-containers.svg` / `.png` | C4 Nível 2 — contentores principais e tecnologias | Até à Entrega 1 |
+| `data-model.svg` / `.png` | Modelo de dados (sessão + análise, sem BD) | Até à Entrega 1 |
+
+> Os diagramas estão em SVG (editáveis no draw.io). Para exportar PNG: `python scripts/export_diagrams_png.py` (requer `cairosvg`).
 | `adr/` | Decisões de arquitectura | Durante todo o semestre |
 
 ## Notas sobre o modelo de dados

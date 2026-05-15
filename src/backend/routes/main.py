@@ -1,10 +1,9 @@
 import os
 import json
-import base64
-import numpy as np
-from io import BytesIO
+
 from flask import (
     Blueprint,
+    make_response,
     render_template,
     request,
     redirect,
@@ -15,10 +14,11 @@ from flask import (
 )
 from werkzeug.utils import secure_filename
 
-try:
-    import librosa
-except ImportError:
-    librosa = None
+from backend.services import (
+    process_audio_file,
+    build_analysis_summary,
+    generate_feedback,
+)
 
 main_bp = Blueprint("main", __name__)
 
@@ -29,6 +29,16 @@ def allowed_file(filename):
         and filename.rsplit(".", 1)[1].lower()
         in current_app.config.get("ALLOWED_EXTENSIONS", {"wav", "mp3"})
     )
+
+
+def _get_uploaded_file_path():
+    filename = session.get("filename")
+    if not filename:
+        return None, None
+    file_path = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+    if not os.path.exists(file_path):
+        return filename, None
+    return filename, file_path
 
 
 @main_bp.route("/", methods=["GET", "POST"])
@@ -55,6 +65,7 @@ def upload():
 
             session["filename"] = filename
             session["size_mb"] = size_mb
+            session.pop("analysis_summary", None)
 
             if is_ajax:
                 return jsonify({"status": "ok", "redirect": url_for("main.analysis")})
@@ -68,13 +79,10 @@ def upload():
 
 @main_bp.route("/analise")
 def analysis():
-    filename = session.get("filename")
+    filename, file_path = _get_uploaded_file_path()
     if not filename:
         return redirect(url_for("main.upload"))
-
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
-    file_path = os.path.join(upload_folder, filename)
-    if not os.path.exists(file_path):
+    if not file_path:
         return redirect(url_for("main.upload"))
 
     spec_data = process_audio_file(file_path)
@@ -83,6 +91,9 @@ def analysis():
             "analysis_current.html",
             filename=filename,
         )
+
+    summary = build_analysis_summary(spec_data)
+    session["analysis_summary"] = summary
 
     events = spec_data.get("events", [])
     silence_events = [ev for ev in events if ev.get("type") == "silence"]
@@ -96,7 +107,7 @@ def analysis():
         filename=filename,
         duration=f"{spec_data['duration']:.1f} s",
         sample_rate=f"{spec_data['sample_rate']} Hz",
-        channels="stereo",
+        channels="mono",
         spec_data=json.dumps(spec_data["spec"]),
         spec_duration=spec_data["duration"],
         spec_sr=spec_data["sample_rate"],
@@ -111,14 +122,37 @@ def analysis():
 
 @main_bp.route("/feedback")
 def feedback():
-    filename = session.get("filename")
+    filename, file_path = _get_uploaded_file_path()
     if not filename:
         return redirect(url_for("main.upload"))
+    if not file_path:
+        return redirect(url_for("main.upload"))
 
-    return render_template(
-        "feedback_current.html",
+    summary = session.get("analysis_summary")
+    if not summary:
+        spec_data = process_audio_file(file_path)
+        if not spec_data:
+            return redirect(url_for("main.analysis"))
+        summary = build_analysis_summary(spec_data)
+        session["analysis_summary"] = summary
+
+    feedback_data = generate_feedback(summary)
+    size_mb = session.get("size_mb", "—")
+
+    html = render_template(
+        "feedback.html",
         filename=filename,
+        size_mb=size_mb,
+        noise_level=feedback_data["noise_level"],
+        noise_pill_class=feedback_data["noise_pill_class"],
+        feedback_items=feedback_data["feedback_items"],
+        stats=feedback_data["stats"],
+        highlights=feedback_data["highlights"],
+        verdict=feedback_data["verdict"],
     )
+    response = make_response(html)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 @main_bp.route("/reset")
@@ -146,271 +180,6 @@ def test_simple():
     return jsonify({"message": "Test route working", "timestamp": "test"})
 
 
-def process_audio_file(file_path):
-    """Processa ficheiro de áudio e retorna dados de espectrograma e silêncio."""
-    if not librosa:
-        print("Librosa não está instalado")
-        return None
-    
-    try:
-        print(f"Carregando áudio de: {file_path}")
-        # Carrega o áudio em mono para detecção consistente
-        y, sr = librosa.load(file_path, sr=None, mono=True)
-        print(f"Áudio carregado: {len(y)} samples, {sr} Hz")
-
-        duration = len(y) / sr
-        frame_length = 2048
-        hop_length = 512
-        top_db = 40
-
-        # Detecta segmentos não silenciosos e extrai silêncios
-        nonsilent = librosa.effects.split(
-            y,
-            top_db=top_db,
-            frame_length=frame_length,
-            hop_length=hop_length,
-        )
-
-        silence_segments = []
-        last_end = 0
-        for start_frame, end_frame in nonsilent:
-            start = last_end / sr
-            end = start_frame / sr
-            if end - start >= 0.12:
-                silence_segments.append({
-                    "start": round(start, 2),
-                    "end": round(end, 2),
-                    "duration": round(end - start, 2),
-                })
-            last_end = end_frame
-
-        if last_end < len(y):
-            start = last_end / sr
-            end = duration
-            if end - start >= 0.12:
-                silence_segments.append({
-                    "start": round(start, 2),
-                    "end": round(end, 2),
-                    "duration": round(end - start, 2),
-                })
-
-        # Detecta clipping por picos muito próximos de -1/1
-        clip_threshold = 0.9
-        clipping_mask = np.abs(y) >= clip_threshold
-        clipping_segments = []
-        if clipping_mask.any():
-            clip_changes = np.flatnonzero(np.diff(clipping_mask.astype(int), prepend=0, append=0))
-            for i in range(0, len(clip_changes), 2):
-                start_sample = clip_changes[i]
-                end_sample = clip_changes[i + 1]
-                start = start_sample / sr
-                end = end_sample / sr
-                if end - start >= 0.0001:  # Aumenta sensibilidade para detectar até mesmo clippings muito curtos
-                    clipping_segments.append({
-                        "start": round(start, 2),
-                        "end": round(end, 2),
-                        "duration": round(end - start, 2),
-                    })
-
-        # Fundir segmentos de clipping adjacentes, sobrepostos ou com gap pequeno
-        merged_clipping_segments = []
-        if clipping_segments:
-            clipping_segments.sort(key=lambda x: x['start'])
-            current = clipping_segments[0]
-            for next_seg in clipping_segments[1:]:
-                if current['end'] + 0.05 >= next_seg['start']:  # Fundir se gap <= 0.05s
-                    current['end'] = max(current['end'], next_seg['end'])
-                    current['duration'] = round(current['end'] - current['start'], 2)
-                else:
-                    merged_clipping_segments.append(current)
-                    current = next_seg
-            merged_clipping_segments.append(current)
-        clipping_segments = merged_clipping_segments
-
-        # Detectar variações abruptas de energia (aumentos súbitos de volume)
-        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=hop_length)[0]
-        noise_floor = np.percentile(rms, 10) if len(rms) else 0.0
-        peak_energy = np.max(rms) if len(rms) else 1e-9
-        noise_ratio = noise_floor / max(peak_energy, 1e-9)
-        if noise_ratio < 0.015:
-            background_noise = "baixo"
-        elif noise_ratio < 0.05:
-            background_noise = "moderado"
-        else:
-            background_noise = "alto"
-
-        energy_segments = []
-        for i in range(1, len(rms)):
-            if rms[i] > 2 * rms[i-1] and rms[i] > 0.05:  # Aumento abrupto e energia significativa
-                start = (i * hop_length) / sr
-                end = min((i + 1) * hop_length / sr, duration)
-                if end - start >= 0.01:
-                    energy_segments.append({
-                        "start": round(start, 2),
-                        "end": round(end, 2),
-                        "duration": round(end - start, 2),
-                    })
-
-        # Detectar mudanças significativas no espectro de frequência
-        centroid = librosa.feature.spectral_centroid(y=y, sr=sr, n_fft=2048, hop_length=hop_length)[0]
-        spectral_segments = []
-        for i in range(1, len(centroid)):
-            if abs(centroid[i] - centroid[i-1]) > 1500:  # Mudança significativa
-                start = (i * hop_length) / sr
-                end = min((i + 1) * hop_length / sr, duration)
-                if end - start >= 0.01:
-                    spectral_segments.append({
-                        "start": round(start, 2),
-                        "end": round(end, 2),
-                        "duration": round(end - start, 2),
-                    })
-
-        # Detectar sons transitórios (batidas, cliques, impactos)
-        onset_frames = librosa.onset.onset_detect(y=y, sr=sr, hop_length=hop_length)
-        transient_segments = []
-        for frame in onset_frames:
-            start = (frame * hop_length) / sr
-            end = min(start + 0.1, duration)  # Segmento curto
-            transient_segments.append({
-                "start": round(start, 2),
-                "end": round(end, 2),
-                "duration": round(end - start, 2),
-            })
-
-        # Gera o espectrograma (STFT)
-        D = librosa.stft(y, n_fft=2048, hop_length=hop_length)
-        S_db = librosa.power_to_db(np.abs(D) ** 2, ref=np.max)
-
-        # Normaliza para 0-255
-        S_norm = ((S_db - S_db.min()) / (S_db.max() - S_db.min()) * 255).astype(np.uint8)
-
-        # Redimensiona para tamanho manejável se necessário
-        if S_norm.shape[0] > 128:
-            S_norm = S_norm[::S_norm.shape[0]//128, :]
-
-        silence_events = []
-        silence_annotations = []
-        for segment in silence_segments:
-            start = segment["start"]
-            end = segment["end"]
-            left = (start / duration) * 100 if duration > 0 else 0
-            width = ((end - start) / duration) * 100 if duration > 0 else 0
-            silence_events.append({
-                "type": "silence",
-                "badge": "silêncio",
-                "desc": "Segmento de silêncio detectado",
-                "time": f"{start:.2f}s – {end:.2f}s",
-            })
-            silence_annotations.append({
-                "left": f"{left:.2f}%",
-                "width": f"{width:.2f}%",
-                "color": "rgba(0, 100, 200, 0.25)",
-                "event_type": "silence",
-            })
-
-        clipping_events = []
-        clipping_annotations = []
-        for segment in clipping_segments:
-            start = segment["start"]
-            end = segment["end"]
-            left = (start / duration) * 100 if duration > 0 else 0
-            width = ((end - start) / duration) * 100 if duration > 0 else 0
-            clipping_events.append({
-                "type": "clip",
-                "badge": "clipping",
-                "desc": "Pico de saturação detectado",
-                "time": f"{start:.2f}s – {end:.2f}s",
-            })
-            clipping_annotations.append({
-                "left": f"{left:.2f}%",
-                "width": f"{width:.2f}%",
-                "color": "rgba(255, 0, 0, 0.25)",
-                "event_type": "clip",
-            })
-
-        energy_events = []
-        energy_annotations = []
-        for segment in energy_segments:
-            start = segment["start"]
-            end = segment["end"]
-            left = (start / duration) * 100 if duration > 0 else 0
-            width = ((end - start) / duration) * 100 if duration > 0 else 0
-            energy_events.append({
-                "type": "energy",
-                "badge": "energia",
-                "desc": "Variação abrupta de energia detectada",
-                "time": f"{start:.2f}s – {end:.2f}s",
-            })
-            energy_annotations.append({
-                "left": f"{left:.2f}%",
-                "width": f"{width:.2f}%",
-                "color": "rgba(255, 100, 0, 0.25)",
-                "event_type": "energy",
-            })
-
-        spectral_events = []
-        spectral_annotations = []
-        for segment in spectral_segments:
-            start = segment["start"]
-            end = segment["end"]
-            left = (start / duration) * 100 if duration > 0 else 0
-            width = ((end - start) / duration) * 100 if duration > 0 else 0
-            spectral_events.append({
-                "type": "spectral",
-                "badge": "espectro",
-                "desc": "Mudança significativa no espectro detectada",
-                "time": f"{start:.2f}s – {end:.2f}s",
-            })
-            spectral_annotations.append({
-                "left": f"{left:.2f}%",
-                "width": f"{width:.2f}%",
-                "color": "rgba(0, 255, 0, 0.25)",
-                "event_type": "spectral",
-            })
-
-        transient_events = []
-        transient_annotations = []
-        for segment in transient_segments:
-            start = segment["start"]
-            end = segment["end"]
-            left = (start / duration) * 100 if duration > 0 else 0
-            width = ((end - start) / duration) * 100 if duration > 0 else 0
-            transient_events.append({
-                "type": "transient",
-                "badge": "transitório",
-                "desc": "Som transitório detectado",
-                "time": f"{start:.2f}s – {end:.2f}s",
-            })
-            transient_annotations.append({
-                "left": f"{left:.2f}%",
-                "width": f"{width:.2f}%",
-                "color": "rgba(255, 255, 0, 0.25)",
-                "event_type": "transient",
-            })
-
-        all_events = silence_events + clipping_events + energy_events + spectral_events + transient_events
-        all_annotations = silence_annotations + clipping_annotations + energy_annotations + spectral_annotations + transient_annotations
-
-        print(f"Espectrograma gerado: {S_norm.shape}")
-        return {
-            "spec": S_norm.tolist(),
-            "duration": duration,
-            "sample_rate": sr,
-            "n_fft": 2048,
-            "hop_length": hop_length,
-            "silence_segments": silence_segments,
-            "clipping_segments": clipping_segments,
-            "events": all_events,
-            "annotations": all_annotations,
-            "background_noise": background_noise,
-        }
-    except Exception as e:
-        print(f"Erro ao processar áudio: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return None
-
-
 @main_bp.route("/test-analysis")
 def test_analysis():
     """Rota de teste para visualização do espectrograma."""
@@ -419,27 +188,34 @@ def test_analysis():
         audio_file = os.path.join(upload_folder, "file_example_MP3_700KB.mp3")
         if not os.path.exists(audio_file):
             return jsonify({"error": "Ficheiro não encontrado"}), 404
-        
+
         spec_data = process_audio_file(audio_file)
         if not spec_data:
             return jsonify({"error": "Erro ao processar áudio"}), 500
-        
-        has_clipping = any(ev.get('type') == 'clip' for ev in spec_data.get("events", []))
-        
+
+        events = spec_data.get("events", [])
+        silence_events = [ev for ev in events if ev.get("type") == "silence"]
+        clipping_events = [ev for ev in events if ev.get("type") == "clip"]
+        other_events = [ev for ev in events if ev.get("type") not in {"silence", "clip"}]
+        has_clipping = bool(clipping_events)
+
         return render_template(
             "analysis.html",
             filename="file_example_MP3_700KB.mp3",
             duration=f"{spec_data['duration']:.1f} s",
             sample_rate=f"{spec_data['sample_rate']} Hz",
-            channels="stereo",
+            channels="mono",
             spec_data=json.dumps(spec_data["spec"]),
-            spec_duration=spec_data['duration'],
-            spec_sr=spec_data['sample_rate'],
+            spec_duration=spec_data["duration"],
+            spec_sr=spec_data["sample_rate"],
             annotations=spec_data.get("annotations", []),
-            events=spec_data.get("events", []),
+            silence_events=silence_events,
+            clipping_events=clipping_events,
+            other_events=other_events,
             has_clipping=has_clipping,
             background_noise=spec_data.get("background_noise", "desconhecido"),
         )
     except Exception as e:
         import traceback
+
         return jsonify({"error": str(e), "traceback": traceback.format_exc()}), 500

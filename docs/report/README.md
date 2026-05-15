@@ -6,7 +6,7 @@ Esta pasta contém as versões PDF dos relatórios formais.
 
 | Ficheiro | Entrega | Data |
 |---------|---------|------|
-| `relatorio-intercalar.pdf` | Relatório intercalar | 6 de maio |
+| `relatorio-intercalar.pdf` | Relatório intercalar | 6 de maio · gerado com `python scripts/generate_intercalar_pdf.py` |
 | `relatorio-final.pdf` | Relatório final | 24 de junho |
 
 ## Notas
