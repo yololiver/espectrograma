@@ -305,6 +305,7 @@ def process_audio_file(file_path):
                 "left": f"{left:.2f}%",
                 "width": f"{width:.2f}%",
                 "color": "rgba(0, 100, 200, 0.25)",
+                "event_type": "silence",
             })
 
         clipping_events = []
@@ -324,6 +325,7 @@ def process_audio_file(file_path):
                 "left": f"{left:.2f}%",
                 "width": f"{width:.2f}%",
                 "color": "rgba(255, 0, 0, 0.25)",
+                "event_type": "clip",
             })
 
         energy_events = []
@@ -343,6 +345,7 @@ def process_audio_file(file_path):
                 "left": f"{left:.2f}%",
                 "width": f"{width:.2f}%",
                 "color": "rgba(255, 100, 0, 0.25)",
+                "event_type": "energy",
             })
 
         spectral_events = []
@@ -362,6 +365,7 @@ def process_audio_file(file_path):
                 "left": f"{left:.2f}%",
                 "width": f"{width:.2f}%",
                 "color": "rgba(0, 255, 0, 0.25)",
+                "event_type": "spectral",
             })
 
         transient_events = []
@@ -381,6 +385,7 @@ def process_audio_file(file_path):
                 "left": f"{left:.2f}%",
                 "width": f"{width:.2f}%",
                 "color": "rgba(255, 255, 0, 0.25)",
+                "event_type": "transient",
             })
 
         all_events = silence_events + clipping_events + energy_events + spectral_events + transient_events

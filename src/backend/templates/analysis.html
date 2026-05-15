@@ -31,10 +31,16 @@
         <div class="spec-axis-y" id="spec-axis-y">
         <span>20 kHz</span><span>15 kHz</span><span>10 kHz</span><span>5 kHz</span><span>0</span>
       </div>
-      <canvas class="spec" id="spec-canvas" height="220"></canvas>
+      <div class="spec-canvas-container">
+        <!-- Canvas base: espetrograma colorido original (referência) -->
+        <canvas class="spec spec-base" id="spec-canvas-base" height="220"></canvas>
+        
+        <!-- Canvas overlay: espetrograma em tons de cinza -->
+        <canvas class="spec spec-overlay" id="spec-canvas-overlay" height="220"></canvas>
+      </div>
 
       {% for a in annotations %}
-      <div class="annotation"
+      <div class="annotation" data-event-type="{{ a.event_type }}"
            style="left:{{ a.left }};width:{{ a.width }};background:{{ a.color }}">
       </div>
       {% endfor %}
@@ -52,14 +58,40 @@
       <div class="legend-item"><div class="legend-dot" style="background:#FF0000"></div>pico máximo</div>
     </div>
 
+    <div style="margin-bottom: 14px;">
+      <div class="section-label">Filtrar eventos</div>
+      <div class="event-filters">
+        <button class="filter-btn active filter-silence" data-filter="silence" title="Mostrar silêncios">
+          <span class="filter-btn-dot" style="background: rgba(0, 100, 200, 0.8);"></span>
+          Silêncio
+        </button>
+        <button class="filter-btn active filter-clip" data-filter="clip" title="Mostrar clipping">
+          <span class="filter-btn-dot" style="background: rgba(255, 0, 0, 0.8);"></span>
+          Clipping
+        </button>
+        <button class="filter-btn active filter-energy" data-filter="energy" title="Mostrar picos de energia">
+          <span class="filter-btn-dot" style="background: rgba(255, 100, 0, 0.8);"></span>
+          Energia
+        </button>
+        <button class="filter-btn active filter-spectral" data-filter="spectral" title="Mostrar mudanças de espectro">
+          <span class="filter-btn-dot" style="background: rgba(0, 200, 0, 0.8);"></span>
+          Espectro
+        </button>
+        <button class="filter-btn active filter-transient" data-filter="transient" title="Mostrar sons transitórios">
+          <span class="filter-btn-dot" style="background: rgba(255, 200, 0, 0.8);"></span>
+          Transitório
+        </button>
+      </div>
+    </div>
+
     <div class="section-label">Eventos detectados</div>
 
     {% if silence_events %}
-    <div class="event-group">
+    <div class="event-group" data-event-type="silence">
       <div class="event-group-label">Silêncio</div>
       <div class="events-list">
         {% for ev in silence_events %}
-        <div class="event-row event-row-silence">
+        <div class="event-row event-row-silence" data-event-type="silence">
           <span class="badge badge-silence">{{ ev.badge }}</span>
           <span class="event-desc">{{ ev.desc }}</span>
           <span class="event-time">{{ ev.time }}</span>
@@ -70,11 +102,11 @@
     {% endif %}
 
     {% if clipping_events %}
-    <div class="event-group">
+    <div class="event-group" data-event-type="clip">
       <div class="event-group-label">Clipping</div>
       <div class="events-list">
         {% for ev in clipping_events %}
-        <div class="event-row event-row-clip">
+        <div class="event-row event-row-clip" data-event-type="clip">
           <span class="badge badge-clip">{{ ev.badge }}</span>
           <span class="event-desc">{{ ev.desc }}</span>
           <span class="event-time">{{ ev.time }}</span>
@@ -93,7 +125,7 @@
       <div class="event-group-label">Outros eventos</div>
       <div class="events-list">
         {% for ev in other_events %}
-        <div class="event-row">
+        <div class="event-row" data-event-type="{{ ev.type }}">
           <span class="badge badge-{{ ev.type if ev.type in ['energy','spectral','transient'] else 'event' }}">{{ ev.badge }}</span>
           <span class="event-desc">{{ ev.desc }}</span>
           <span class="event-time">{{ ev.time }}</span>
@@ -112,11 +144,16 @@
 
 <script>
 (function () {
-  var c   = document.getElementById('spec-canvas');
-  var ctx = c.getContext('2d');
-  var W   = c.offsetWidth * (window.devicePixelRatio || 1);
+  var cBase   = document.getElementById('spec-canvas-base');
+  var cOverlay = document.getElementById('spec-canvas-overlay');
+  var ctxBase = cBase.getContext('2d');
+  var ctxOverlay = cOverlay.getContext('2d');
+  
+  var W   = cBase.offsetWidth * (window.devicePixelRatio || 1);
   var H   = 220 * (window.devicePixelRatio || 1);
-  c.width = W; c.height = H;
+  cBase.width = W; cBase.height = H;
+  cOverlay.width = W; cOverlay.height = H;
+  
   var dark = matchMedia('(prefers-color-scheme:dark)').matches;
   
   var specDataStr = '{{ spec_data | safe }}';
@@ -144,13 +181,13 @@
     try {
       var specData = JSON.parse(specDataStr);
       var numFreqBins = specData.length;
-      var nyquist = specSr / 2; // Frequência máxima (Nyquist)
+      var nyquist = specSr / 2;
       
       axisY.innerHTML = '';
       var freqTicks = [nyquist * 1.0, nyquist * 0.75, nyquist * 0.5, nyquist * 0.25, 0];
       
       for (var i = 0; i < freqTicks.length; i++) {
-        var freq = Math.round(freqTicks[i] / 1000); // Convert to kHz
+        var freq = Math.round(freqTicks[i] / 1000);
         var span = document.createElement('span');
         span.textContent = freq + ' kHz';
         axisY.appendChild(span);
@@ -167,78 +204,94 @@
       var numTimeBins = specData[0] ? specData[0].length : 0;
       var freqHeight = H / numFreqBins;
       var timeWidth = numTimeBins ? W / numTimeBins : W;
-      ctx.imageSmoothingEnabled = false;
+      ctxBase.imageSmoothingEnabled = false;
+      ctxOverlay.imageSmoothingEnabled = false;
 
       function palette(value) {
         var x = Math.max(0, Math.min(1, value));
         var r, g, b;
         
-        // Típico colormap de espectrograma: azul escuro -> cyan -> verde -> amarelo -> laranja -> vermelho
         if (x < 0.167) {
-          // Azul escuro para cyan
           var t = x / 0.167;
           r = 0;
           g = Math.round(100 + t * 155);
           b = Math.round(200 + t * 55);
         } else if (x < 0.333) {
-          // Cyan para verde
           var t = (x - 0.167) / 0.167;
           r = 0;
           g = Math.round(255 - t * 100);
           b = Math.round(255 - t * 255);
         } else if (x < 0.5) {
-          // Verde para amarelo
           var t = (x - 0.333) / 0.167;
           r = Math.round(t * 255);
           g = 255;
           b = 0;
         } else if (x < 0.667) {
-          // Amarelo para laranja
           var t = (x - 0.5) / 0.167;
           r = 255;
           g = Math.round(255 - t * 165);
           b = 0;
         } else if (x < 0.833) {
-          // Laranja para vermelho
           var t = (x - 0.667) / 0.167;
           r = 255;
           g = Math.round(90 - t * 90);
           b = 0;
         } else {
-          // Vermelho para vermelho brilhante
           var t = (x - 0.833) / 0.167;
           r = 255;
           g = 0;
           b = Math.round(t * 100);
         }
         
-        return 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
+        return {r: r, g: g, b: b};
       }
 
-      // Desenha espectrograma com frequências INVERTIDAS (altas em cima, baixas em baixo)
+      function toGrayscale(colorObj) {
+        // Convierte RGB a escala de grises usando luminancia
+        var gray = Math.round(0.299 * colorObj.r + 0.587 * colorObj.g + 0.114 * colorObj.b);
+        return 'rgb(' + gray + ', ' + gray + ', ' + gray + ')';
+      }
+
+      // ===== CANVAS BASE: Espectrograma colorido COMPLETO (referência) =====
       for (var fi = 0; fi < numFreqBins; fi++) {
         var freq = specData[fi];
-        var yPos = (numFreqBins - 1 - fi) * freqHeight; // Inverte eixo Y
+        var yPos = (numFreqBins - 1 - fi) * freqHeight;
         for (var ti = 0; ti < numTimeBins; ti++) {
-          var magnitude = freq[ti] / 255;
-          ctx.fillStyle = palette(magnitude);
-          ctx.fillRect(ti * timeWidth, yPos, timeWidth, freqHeight);
+          var magnitude = freq[ti] / 255; // Magnitude completa sin reducción
+          var colorObj = palette(magnitude);
+          ctxBase.fillStyle = 'rgb(' + colorObj.r + ', ' + colorObj.g + ', ' + colorObj.b + ')';
+          ctxBase.fillRect(ti * timeWidth, yPos, timeWidth, freqHeight);
         }
       }
+
+      // ===== CANVAS OVERLAY: Espectrograma en escala de grises SEMI-TRANSPARENTE =====
+      for (var fi = 0; fi < numFreqBins; fi++) {
+        var freq = specData[fi];
+        var yPos = (numFreqBins - 1 - fi) * freqHeight;
+        for (var ti = 0; ti < numTimeBins; ti++) {
+          var magnitude = freq[ti] / 255;
+          var colorObj = palette(magnitude);
+          ctxOverlay.fillStyle = toGrayscale(colorObj);
+          ctxOverlay.fillRect(ti * timeWidth, yPos, timeWidth, freqHeight);
+        }
+      }
+      
+      // Aplicar opacidad al canvas overlay reduciendo su alpha
+      ctxOverlay.globalAlpha = 0.85;
+      ctxOverlay.fillStyle = 'rgba(255,255,255,0)'; // Este fillRect es solo para aplicar la opacidad global
+      
       return;
     } catch (e) {
       console.log('Erro ao renderizar espectrograma, usando simulação:', e);
     }
   }
   
-  // Simulação de espectrograma (quando não há dados)
-  ctx.fillStyle = '#CCCCCC';
-  ctx.fillRect(0, 0, W, H);
+  // Simulação (si no hay datos reales)
+  ctxBase.fillStyle = '#CCCCCC';
+  ctxBase.fillRect(0, 0, W, H);
   for (var x = 0; x < W; x++) {
     for (var y = 0; y < H; y++) {
-      var v = Math.random() * 0.15
-            + Math.sin(x / W * Math.PI * 7) * 0.07
-            + Math.cos(y / H * Math.PI * 5) * 0.05;
+      var v = Math.random() * 0.15 + Math.sin(x / W * Math.PI * 7) * 0.07 + Math.cos(y / H * Math.PI * 5) * 0.05;
       v += Math.exp(-Math.pow(y / H - 0.72, 2) * 18) * 0.45 * (0.5 + Math.sin(x / W * Math.PI * 14) * 0.5);
       v += Math.exp(-Math.pow(y / H - 0.42, 2) * 28) * 0.22 * (0.5 + Math.cos(x / W * Math.PI * 22) * 0.5);
       v = Math.min(1, Math.max(0, v));
@@ -264,10 +317,65 @@
         r = 255; g = 0; b = Math.round(t * 100);
       }
       
-      ctx.fillStyle = 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
-      ctx.fillRect(x, y, 1, 1);
+      ctxBase.fillStyle = 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
+      ctxBase.fillRect(x, y, 1, 1);
+      
+      var gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      ctxOverlay.fillStyle = 'rgb(' + gray + ', ' + gray + ', ' + gray + ')';
+      ctxOverlay.fillRect(x, y, 1, 1);
     }
   }
+  
+  ctxOverlay.globalAlpha = 0.85;
 }());
+
+// Event filter system
+(function() {
+  const filterBtns = document.querySelectorAll('.filter-btn');
+  const annotations = document.querySelectorAll('.annotation');
+  const eventRows = document.querySelectorAll('.event-row[data-event-type]');
+
+  function updateFilters() {
+    const activeFilters = new Set();
+    filterBtns.forEach(btn => {
+      if (btn.classList.contains('active')) {
+        activeFilters.add(btn.dataset.filter);
+      }
+    });
+
+    // Update annotations
+    annotations.forEach(ann => {
+      const eventType = ann.dataset.eventType;
+      if (activeFilters.has(eventType)) {
+        ann.classList.remove('dim');
+        ann.classList.add('highlight');
+      } else {
+        ann.classList.add('dim');
+        ann.classList.remove('highlight');
+      }
+    });
+
+    // Update event rows
+    eventRows.forEach(row => {
+      const eventType = row.dataset.eventType;
+      if (activeFilters.has(eventType)) {
+        row.classList.remove('dim');
+      } else {
+        row.classList.add('dim');
+      }
+    });
+  }
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      this.classList.toggle('active');
+      updateFilters();
+    });
+  });
+
+  // Initialize filters
+  updateFilters();
+})();
+
 </script>
 {% endblock %}
