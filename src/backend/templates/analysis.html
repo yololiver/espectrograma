@@ -48,39 +48,51 @@
     </div>
 
     <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#0064C8"></div>silêncio</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#0064C8"></div>baixa amplitude</div>
       <div class="legend-item"><div class="legend-dot" style="background:#00FF00"></div>baixa energia</div>
       <div class="legend-item"><div class="legend-dot" style="background:#FFFF00"></div>média</div>
       <div class="legend-item"><div class="legend-dot" style="background:#FF5500"></div>alta</div>
       <div class="legend-item"><div class="legend-dot" style="background:#FF0000"></div>pico máximo</div>
     </div>
 
+    {% if event_types_present %}
     <div style="margin-bottom: 14px;">
       <div class="section-label">Filtrar eventos</div>
       <p class="filter-hint">Desactive tipos para escurecer o espectrograma — só os seleccionados mantêm cor.</p>
       <div class="event-filters">
+        {% if 'silence' in event_types_present %}
         <button class="filter-btn active filter-silence" data-filter="silence" title="Mostrar silêncios">
           <span class="filter-btn-dot" style="background: rgba(0, 100, 200, 0.8);"></span>
           Silêncio
         </button>
+        {% endif %}
+        {% if 'clip' in event_types_present %}
         <button class="filter-btn active filter-clip" data-filter="clip" title="Mostrar clipping">
           <span class="filter-btn-dot" style="background: rgba(255, 0, 0, 0.8);"></span>
           Clipping
         </button>
+        {% endif %}
+        {% if 'energy' in event_types_present %}
         <button class="filter-btn active filter-energy" data-filter="energy" title="Mostrar picos de energia">
           <span class="filter-btn-dot" style="background: rgba(255, 100, 0, 0.8);"></span>
           Energia
         </button>
+        {% endif %}
+        {% if 'spectral' in event_types_present %}
         <button class="filter-btn active filter-spectral" data-filter="spectral" title="Mostrar mudanças de espectro">
           <span class="filter-btn-dot" style="background: rgba(0, 200, 0, 0.8);"></span>
           Espectro
         </button>
+        {% endif %}
+        {% if 'transient' in event_types_present %}
         <button class="filter-btn active filter-transient" data-filter="transient" title="Mostrar sons transitórios">
           <span class="filter-btn-dot" style="background: rgba(255, 200, 0, 0.8);"></span>
           Transitório
         </button>
+        {% endif %}
       </div>
     </div>
+    {% endif %}
 
     <div class="section-label">Eventos detectados</div>
 
@@ -152,7 +164,7 @@
   var container = cBase.parentElement;
   var canvasDisplayWidth = container.offsetWidth;
   var W = canvasDisplayWidth;
-  var H = 220;
+  var H = 360;
   
   cBase.width = W;
   cBase.height = H;
@@ -172,7 +184,7 @@
   var colorImageData = null;
   var grayImageData = null;
   var rendered = false;
-  var ALL_FILTERS = ['silence', 'clip', 'energy', 'spectral', 'transient'];
+  var ALL_FILTERS; // inicializado após filterBtns (derivado do DOM)
   
   // Atualiza eixo X com tempos reais
   var axisX = document.getElementById('spec-axis-x');
@@ -225,10 +237,6 @@
     }
   }
 
-  function parsePercent(value) {
-    return parseFloat(String(value).replace('%', '')) || 0;
-  }
-
   function paintColorColumns(displayData, x0, x1) {
     for (var x = x0; x < x1; x++) {
       for (var y = 0; y < H; y++) {
@@ -258,7 +266,7 @@
       specBox.classList.remove('is-filtering');
       showDefaultSpectrogramView();
       annotations.forEach(function (ann) {
-        ann.classList.remove('is-visible', 'dim', 'highlight');
+        ann.classList.remove('is-visible');
       });
       return;
     }
@@ -268,25 +276,17 @@
     var displayData = ctxBase.createImageData(W, H);
     displayData.data.set(grayImageData.data);
 
-    // Usa offsetWidth em vez de getBoundingClientRect para evitar problemas com transform: scale()
-    var canvasWidth = cBase.offsetWidth;
-
     annotations.forEach(function (ann) {
       var eventType = ann.dataset.eventType;
       var isActive = activeFilters.has(eventType);
       ann.classList.toggle('is-visible', isActive);
-      ann.classList.remove('dim', 'highlight');
 
       if (!isActive) return;
 
-      // Usa offsetLeft em vez de getBoundingClientRect para evitar distorção
       var annLeft = parseFloat(ann.style.left) || 0;
       var annWidth = parseFloat(ann.style.width) || 0;
-      
-      var relLeft = (annLeft / 100) * canvasWidth;
-      var relRight = relLeft + (annWidth / 100) * canvasWidth;
-      var x0 = Math.max(0, Math.floor((relLeft / canvasWidth) * W));
-      var x1 = Math.min(W, Math.ceil((relRight / canvasWidth) * W));
+      var x0 = Math.max(0, Math.floor((annLeft / 100) * W));
+      var x1 = Math.min(W, Math.ceil(((annLeft + annWidth) / 100) * W));
       if (x1 <= x0) x1 = Math.min(W, x0 + 1);
 
       paintColorColumns(displayData, x0, x1);
@@ -300,10 +300,59 @@
       var specData = JSON.parse(specDataStr);
       var numFreqBins = specData.length;
       var numTimeBins = specData[0] ? specData[0].length : 0;
+      
+      // Upscaling bilinear 2x para melhor definição
+      var upscaleFactor = 2;
+      var upscaledData = [];
+      
+      // Interpola em frequência e tempo
+      for (var fi = 0; fi < numFreqBins - 1; fi++) {
+        for (var uf = 0; uf < upscaleFactor; uf++) {
+          var tAlpha = uf / upscaleFactor;
+          var freq0 = specData[fi];
+          var freq1 = specData[fi + 1];
+          var interpFreq = [];
+          
+          for (var ti = 0; ti < numTimeBins - 1; ti++) {
+            for (var ut = 0; ut < upscaleFactor; ut++) {
+              var hAlpha = ut / upscaleFactor;
+              var v00 = freq0[ti];
+              var v01 = freq0[ti + 1];
+              var v10 = freq1[ti];
+              var v11 = freq1[ti + 1];
+              var v = (1 - hAlpha - tAlpha + hAlpha * tAlpha) * v00 +
+                      (hAlpha - hAlpha * tAlpha) * v01 +
+                      (tAlpha - hAlpha * tAlpha) * v10 +
+                      (hAlpha * tAlpha) * v11;
+              interpFreq.push(Math.round(v));
+            }
+          }
+          // Última coluna
+          interpFreq.push(freq0[numTimeBins - 1]);
+          upscaledData.push(interpFreq);
+        }
+      }
+      // Última linha
+      var lastFreq = [];
+      for (var ti2 = 0; ti2 < numTimeBins - 1; ti2++) {
+        for (var ut2 = 0; ut2 < upscaleFactor; ut2++) {
+          var hAlpha2 = ut2 / upscaleFactor;
+          var v0 = specData[numFreqBins - 1][ti2];
+          var v1 = specData[numFreqBins - 1][ti2 + 1];
+          lastFreq.push(Math.round(v0 * (1 - hAlpha2) + v1 * hAlpha2));
+        }
+      }
+      lastFreq.push(specData[numFreqBins - 1][numTimeBins - 1]);
+      upscaledData.push(lastFreq);
+      
+      specData = upscaledData;
+      numFreqBins = specData.length;
+      numTimeBins = specData[0] ? specData[0].length : 0;
+      
       var freqHeight = H / numFreqBins;
       var timeWidth = numTimeBins ? W / numTimeBins : W;
-      ctxBase.imageSmoothingEnabled = false;
-      ctxOverlay.imageSmoothingEnabled = false;
+      ctxBase.imageSmoothingEnabled = true;
+      ctxOverlay.imageSmoothingEnabled = true;
 
       function palette(value) {
         var x = Math.max(0, Math.min(1, value));
@@ -426,6 +475,9 @@
   var filterBtns = document.querySelectorAll('.filter-btn');
   var eventRows = document.querySelectorAll('.event-row[data-event-type]');
 
+  // Deriva ALL_FILTERS apenas dos botões efectivamente renderizados
+  ALL_FILTERS = Array.from(filterBtns).map(function (btn) { return btn.dataset.filter; });
+
   function updateFilters() {
     var activeFilters = new Set();
     filterBtns.forEach(function (btn) {
@@ -436,10 +488,24 @@
 
     applySpectrogramEventFilter(activeFilters);
 
+    // Dim/undim linhas individuais de eventos
     eventRows.forEach(function (row) {
       var eventType = row.dataset.eventType;
       row.classList.toggle('dim', !activeFilters.has(eventType));
     });
+
+    // Dim/undim cabeçalhos de grupos (silêncio, clipping)
+    document.querySelectorAll('.event-group[data-event-type]').forEach(function (group) {
+      group.classList.toggle('dim', !activeFilters.has(group.dataset.eventType));
+    });
+
+    // Dim do grupo "Outros eventos" se todos os seus tipos estiverem filtrados
+    var otherGroup = document.querySelector('.event-group:not([data-event-type])');
+    if (otherGroup) {
+      var anyVisible = Array.from(otherGroup.querySelectorAll('.event-row[data-event-type]'))
+        .some(function (row) { return !row.classList.contains('dim'); });
+      otherGroup.classList.toggle('dim', !anyVisible);
+    }
   }
 
   filterBtns.forEach(function (btn) {

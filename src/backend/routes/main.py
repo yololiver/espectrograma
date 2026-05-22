@@ -101,6 +101,7 @@ def analysis():
     other_events = [ev for ev in events if ev.get("type") not in {"silence", "clip"}]
     has_clipping = bool(clipping_events)
     background_noise = spec_data.get("background_noise", "desconhecido")
+    event_types_present = {ev.get("type") for ev in events}
 
     return render_template(
         "analysis.html",
@@ -117,6 +118,7 @@ def analysis():
         other_events=other_events,
         has_clipping=has_clipping,
         background_noise=background_noise,
+        event_types_present=event_types_present,
     )
 
 
@@ -198,6 +200,7 @@ def test_analysis():
         clipping_events = [ev for ev in events if ev.get("type") == "clip"]
         other_events = [ev for ev in events if ev.get("type") not in {"silence", "clip"}]
         has_clipping = bool(clipping_events)
+        event_types_present = {ev.get("type") for ev in events}
 
         return render_template(
             "analysis.html",
@@ -214,6 +217,7 @@ def test_analysis():
             other_events=other_events,
             has_clipping=has_clipping,
             background_noise=spec_data.get("background_noise", "desconhecido"),
+            event_types_present=event_types_present,
         )
     except Exception as e:
         import traceback

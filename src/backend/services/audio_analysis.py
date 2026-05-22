@@ -33,7 +33,7 @@ def process_audio_file(file_path):
         y, sr = librosa.load(file_path, sr=None, mono=True)
         duration = len(y) / sr
         frame_length = 2048
-        hop_length = 512
+        hop_length = 256
         top_db = 40
 
         nonsilent = librosa.effects.split(
@@ -123,7 +123,7 @@ def process_audio_file(file_path):
                     })
 
         centroid = librosa.feature.spectral_centroid(
-            y=y, sr=sr, n_fft=2048, hop_length=hop_length
+            y=y, sr=sr, n_fft=4096, hop_length=hop_length
         )[0]
         spectral_segments = []
         for i in range(1, len(centroid)):
@@ -148,7 +148,7 @@ def process_audio_file(file_path):
                 "duration": round(end - start, 2),
             })
 
-        D = librosa.stft(y, n_fft=2048, hop_length=hop_length)
+        D = librosa.stft(y, n_fft=4096, hop_length=hop_length)
         power = np.abs(D) ** 2
         ref = float(np.max(power))
         if ref < 1e-12:
@@ -157,8 +157,8 @@ def process_audio_file(file_path):
             S_db = librosa.power_to_db(power, ref=ref)
         S_norm = normalize_spectrogram_db(S_db)
 
-        if S_norm.shape[0] > 128:
-            S_norm = S_norm[:: S_norm.shape[0] // 128, :]
+        if S_norm.shape[0] > 512:
+            S_norm = S_norm[:: S_norm.shape[0] // 512, :]
 
         def _build_events_and_annotations(segments, event_type, badge, desc, color):
             events = []
@@ -237,7 +237,7 @@ def process_audio_file(file_path):
             "spec": S_norm.tolist(),
             "duration": duration,
             "sample_rate": sr,
-            "n_fft": 2048,
+            "n_fft": 4096,
             "hop_length": hop_length,
             "silence_segments": silence_segments,
             "clipping_segments": clipping_segments,
