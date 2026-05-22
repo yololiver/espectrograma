@@ -13,7 +13,11 @@
     </div>
   </div>
 
-  <div class="content">
+  <div class="content" style="position:relative">
+    <div class="analysis-loading" id="analysis-loading">
+      <div class="analysis-loading-spinner"></div>
+      <span class="analysis-loading-label">A preparar análise…</span>
+    </div>
     <div style="margin-bottom:12px">
       <p class="screen-title">{{ filename }}</p>
       <p class="screen-sub" style="margin-bottom:0">
@@ -472,6 +476,33 @@
     storeSpectrogramBuffers();
   }
 
+  // Listas colapsáveis — mostra só o 1.º item por padrão, expande ao clicar
+  document.querySelectorAll('.events-list').forEach(function (list) {
+    var rows = Array.from(list.querySelectorAll('.event-row'));
+    if (rows.length <= 1) return;
+
+    rows.slice(1).forEach(function (row) { row.classList.add('events-collapsed'); });
+
+    var extra = rows.length - 1;
+    var btn = document.createElement('button');
+    btn.className = 'events-toggle-btn';
+    btn.textContent = 'ver mais (' + extra + ')';
+    btn.dataset.expanded = 'false';
+
+    btn.addEventListener('click', function () {
+      var isExpanded = this.dataset.expanded === 'true';
+      rows.slice(1).forEach(function (row) {
+        row.classList.toggle('events-collapsed', isExpanded);
+      });
+      this.dataset.expanded = isExpanded ? 'false' : 'true';
+      this.textContent = isExpanded
+        ? 'ver mais (' + extra + ')'
+        : 'ver menos';
+    });
+
+    list.appendChild(btn);
+  });
+
   var filterBtns = document.querySelectorAll('.filter-btn');
   var eventRows = document.querySelectorAll('.event-row[data-event-type]');
 
@@ -519,6 +550,17 @@
 
   showDefaultSpectrogramView();
   updateFilters();
+
+  // Remove o overlay após o browser ter pintado a frame com o espectrograma
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      var loader = document.getElementById('analysis-loading');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(function () { loader.style.display = 'none'; }, 220);
+      }
+    });
+  });
 })();
 
 </script>
