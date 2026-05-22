@@ -148,12 +148,21 @@
   var ctxOverlay = cOverlay.getContext('2d');
   var specBox = document.getElementById('spectrogram-box');
 
-  var W = cBase.offsetWidth * (window.devicePixelRatio || 1);
-  var H = 220 * (window.devicePixelRatio || 1);
+  // Use container width sem devicePixelRatio para evitar  duplicação de escala
+  var container = cBase.parentElement;
+  var canvasDisplayWidth = container.offsetWidth;
+  var W = canvasDisplayWidth;
+  var H = 220;
+  
   cBase.width = W;
   cBase.height = H;
+  cBase.style.width = W + 'px';
+  cBase.style.height = H + 'px';
+  
   cOverlay.width = W;
   cOverlay.height = H;
+  cOverlay.style.width = W + 'px';
+  cOverlay.style.height = H + 'px';
 
   var specDataStr = '{{ spec_data | safe }}';
   var specDuration = {{ spec_duration | default(42) }};
@@ -259,8 +268,8 @@
     var displayData = ctxBase.createImageData(W, H);
     displayData.data.set(grayImageData.data);
 
-    var canvasLeft = cBase.getBoundingClientRect().left;
-    var canvasWidth = cBase.getBoundingClientRect().width || cBase.offsetWidth;
+    // Usa offsetWidth em vez de getBoundingClientRect para evitar problemas com transform: scale()
+    var canvasWidth = cBase.offsetWidth;
 
     annotations.forEach(function (ann) {
       var eventType = ann.dataset.eventType;
@@ -270,9 +279,12 @@
 
       if (!isActive) return;
 
-      var annRect = ann.getBoundingClientRect();
-      var relLeft = annRect.left - canvasLeft;
-      var relRight = annRect.right - canvasLeft;
+      // Usa offsetLeft em vez de getBoundingClientRect para evitar distorção
+      var annLeft = parseFloat(ann.style.left) || 0;
+      var annWidth = parseFloat(ann.style.width) || 0;
+      
+      var relLeft = (annLeft / 100) * canvasWidth;
+      var relRight = relLeft + (annWidth / 100) * canvasWidth;
       var x0 = Math.max(0, Math.floor((relLeft / canvasWidth) * W));
       var x1 = Math.min(W, Math.ceil((relRight / canvasWidth) * W));
       if (x1 <= x0) x1 = Math.min(W, x0 + 1);
