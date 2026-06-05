@@ -446,6 +446,164 @@
 {% block body %}{% endblock %}
 
 
+<!-- ==================== INSTRUMENTOS DE FUNDO ==================== -->
+<div id="instruments-bg" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden;"></div>
+<script>
+/* ===== INSTRUMENTOS DECORATIVOS ANIMADOS ===== */
+!function(){
+  var W = document.getElementById('instruments-bg');
+  var NS = 'http://www.w3.org/2000/svg';
+  var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  function col(){ return isDark ? '#e8e6df' : '#1a1a18'; }
+
+  var D = {
+    kbd: { w:110, h:55, d:
+      '<rect x="1" y="1" width="108" height="53" rx="4" fill="none" stroke-width="2"/>' +
+      '<rect x="5" y="5" width="100" height="33" rx="2" fill="none" stroke-width="1.5"/>' +
+      '<line x1="19" y1="5" x2="19" y2="38"/><line x1="33" y1="5" x2="33" y2="38"/>' +
+      '<line x1="47" y1="5" x2="47" y2="38"/><line x1="61" y1="5" x2="61" y2="38"/>' +
+      '<line x1="75" y1="5" x2="75" y2="38"/><line x1="89" y1="5" x2="89" y2="38"/>' +
+      '<rect x="14" y="5" width="9" height="20" rx="1.5" fill="none"/>' +
+      '<rect x="28" y="5" width="9" height="20" rx="1.5" fill="none"/>' +
+      '<rect x="56" y="5" width="9" height="20" rx="1.5" fill="none"/>' +
+      '<rect x="70" y="5" width="9" height="20" rx="1.5" fill="none"/>' +
+      '<rect x="84" y="5" width="9" height="20" rx="1.5" fill="none"/>' +
+      '<circle cx="20" cy="47" r="4" fill="none"/>' +
+      '<circle cx="35" cy="47" r="4" fill="none"/>' +
+      '<circle cx="50" cy="47" r="4" fill="none"/>'
+    },
+    gtr: { w:55, h:155, d:
+      '<rect x="24" y="5" width="7" height="78" rx="2" fill="none" stroke-width="1.5"/>' +
+      '<path d="M 19 2 Q 27.5 0 36 2 L 36 22 Q 27.5 25 19 22 Z" fill="none" stroke-width="1.5"/>' +
+      '<line x1="19" y1="8" x2="13" y2="8"/><circle cx="12" cy="8" r="2.5" fill="none"/>' +
+      '<line x1="19" y1="16" x2="13" y2="16"/><circle cx="12" cy="16" r="2.5" fill="none"/>' +
+      '<line x1="36" y1="8" x2="42" y2="8"/><circle cx="43" cy="8" r="2.5" fill="none"/>' +
+      '<line x1="36" y1="16" x2="42" y2="16"/><circle cx="43" cy="16" r="2.5" fill="none"/>' +
+      '<line x1="22" y1="24" x2="33" y2="24" stroke-width="2"/>' +
+      '<path d="M 27.5 83 C 8 83 2 95 2 106 C 2 115 9 120 16 121 C 10 125 2 130 2 140 C 2 150 12 155 27.5 155 C 43 155 53 150 53 140 C 53 130 45 125 39 121 C 46 120 53 115 53 106 C 53 95 47 83 27.5 83 Z" fill="none" stroke-width="2"/>' +
+      '<circle cx="27.5" cy="115" r="9" fill="none" stroke-width="1.5"/>' +
+      '<rect x="20" y="136" width="15" height="4" rx="1.5" fill="none"/>' +
+      '<line x1="24" y1="35" x2="31" y2="35" stroke-width="0.8"/>' +
+      '<line x1="24" y1="47" x2="31" y2="47" stroke-width="0.8"/>' +
+      '<line x1="24" y1="59" x2="31" y2="59" stroke-width="0.8"/>' +
+      '<line x1="24" y1="71" x2="31" y2="71" stroke-width="0.8"/>'
+    },
+    drm: { w:80, h:90, d:
+      '<ellipse cx="40" cy="15" rx="36" ry="10" fill="none" stroke-width="2"/>' +
+      '<ellipse cx="40" cy="50" rx="36" ry="10" fill="none" stroke-width="2"/>' +
+      '<line x1="4" y1="15" x2="4" y2="50" stroke-width="2"/>' +
+      '<line x1="76" y1="15" x2="76" y2="50" stroke-width="2"/>' +
+      '<path d="M 4 53 Q 40 59 76 53" fill="none" stroke-width="1"/>' +
+      '<line x1="55" y1="88" x2="22" y2="3" stroke-width="3" stroke-linecap="round"/>' +
+      '<line x1="63" y1="88" x2="30" y2="3" stroke-width="3" stroke-linecap="round"/>' +
+      '<line x1="20" y1="55" x2="5" y2="82" stroke-width="1.5"/>' +
+      '<line x1="40" y1="58" x2="40" y2="86" stroke-width="1.5"/>' +
+      '<line x1="60" y1="55" x2="75" y2="82" stroke-width="1.5"/>'
+    },
+    hrn: { w:88, h:85, d:
+      '<path d="M 52 12 C 77 12 82 30 82 42 C 82 62 66 76 46 76 C 26 76 12 62 10 46" fill="none" stroke-width="2"/>' +
+      '<path d="M 52 5 C 82 5 89 26 89 42 C 89 68 70 82 46 82 C 22 82 5 66 5 48" fill="none" stroke-width="1.5"/>' +
+      '<path d="M 52 19 C 70 19 75 34 75 42 C 75 56 63 66 46 66 C 29 66 18 56 16 46" fill="none" stroke-width="1.5"/>' +
+      '<path d="M 10 46 Q 3 56 2 68 Q 5 80 20 80 Q 30 77 32 69" fill="none" stroke-width="2.5"/>' +
+      '<rect x="40" y="15" width="9" height="15" rx="4.5" fill="none" stroke-width="1.5"/>' +
+      '<rect x="52" y="17" width="9" height="15" rx="4.5" fill="none" stroke-width="1.5"/>' +
+      '<rect x="28" y="17" width="9" height="15" rx="4.5" fill="none" stroke-width="1.5"/>' +
+      '<line x1="52" y1="5" x2="52" y2="0" stroke-width="2"/>' +
+      '<line x1="48" y1="0" x2="56" y2="0" stroke-width="2"/>'
+    },
+    cym: { w:60, h:88, d:
+      '<ellipse cx="30" cy="10" rx="28" ry="7" fill="none" stroke-width="2"/>' +
+      '<line x1="30" y1="17" x2="30" y2="65" stroke-width="2"/>' +
+      '<line x1="10" y1="65" x2="50" y2="65" stroke-width="1.5"/>' +
+      '<line x1="5" y1="80" x2="22" y2="65" stroke-width="1.5"/>' +
+      '<line x1="55" y1="80" x2="38" y2="65" stroke-width="1.5"/>' +
+      '<circle cx="30" cy="65" r="4" fill="none"/>'
+    }
+  };
+
+  var TYPES = Object.keys(D);
+  var N = 30;
+  var parts = [], els = [];
+
+  function mkPart(initial) {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var k = TYPES[Math.floor(Math.random() * TYPES.length)];
+    var def = D[k];
+    var sz = 45 + Math.random() * 38;
+    return {
+      k: k, def: def, sz: sz,
+      x: Math.random() * vw,
+      y: initial ? Math.random() * vh : vh + 80,
+      vx: (Math.random() - 0.5) * 0.06,
+      vy: -(0.025 + Math.random() * 0.04),
+      rot: Math.random() * 360 - 180,
+      rotV: (Math.random() - 0.5) * 0.006,
+      ph: Math.random() * Math.PI * 2
+    };
+  }
+
+  function applyPart(el, p) {
+    var def = p.def;
+    el.setAttribute('viewBox', '0 0 ' + def.w + ' ' + def.h);
+    el.setAttribute('width',  p.sz);
+    el.setAttribute('height', Math.round(p.sz * def.h / def.w));
+    el.innerHTML = def.d;
+  }
+
+  for (var i = 0; i < N; i++) {
+    var p = mkPart(true);
+    parts.push(p);
+    var el = document.createElementNS(NS, 'svg');
+    el.setAttribute('xmlns', NS);
+    el.setAttribute('stroke', col());
+    el.setAttribute('fill', 'none');
+    el.setAttribute('stroke-linecap', 'round');
+    el.setAttribute('stroke-linejoin', 'round');
+    el.style.cssText = 'position:absolute;pointer-events:none;';
+    applyPart(el, p);
+    W.appendChild(el);
+    els.push(el);
+  }
+
+  function frame() {
+    var vw = window.innerWidth, vh = window.innerHeight;
+    for (var i = 0; i < N; i++) {
+      var p = parts[i], el = els[i];
+      p.ph  += 0.005;
+      p.x   += p.vx + Math.sin(p.ph) * 0.22;
+      p.y   += p.vy;
+      p.rot += p.rotV;
+
+      if (p.y < -120) {
+        parts[i] = mkPart(false);
+        p = parts[i];
+        applyPart(el, p);
+      }
+      if (p.x < -120) p.x = vw + 60;
+      if (p.x > vw + 120) p.x = -60;
+
+      var prog = 1 - p.y / vh;
+      var a = prog < 0.08 ? prog / 0.08 : prog > 0.88 ? (1 - prog) / 0.12 : 1;
+      a *= 0.1;
+
+      el.style.opacity   = a;
+      el.style.left      = p.x + 'px';
+      el.style.top       = p.y + 'px';
+      el.style.transform = 'translate(-50%,-50%) rotate(' + p.rot + 'deg)';
+    }
+    requestAnimationFrame(frame);
+  }
+
+  frame();
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e){
+    isDark = e.matches;
+    var c = col();
+    for(var i=0;i<els.length;i++) els[i].setAttribute('stroke',c);
+  });
+}();
+</script>
+<!-- ==================== FIM INSTRUMENTOS ==================== -->
+
 <!-- ==================== NOTAS MUSICAIS ==================== -->
 <canvas id="notes-canvas" style="
   position:fixed;top:0;left:0;width:100vw;height:100vh;
