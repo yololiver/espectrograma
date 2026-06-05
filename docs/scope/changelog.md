@@ -120,40 +120,64 @@ Indicador de progresso no upload; refinamento da UI; testes com áudios de refer
 ## Sem. 9 · 7–9 mai
 
 **Feito:**  
+Validação pós-intercalar; testes com ficheiros de referência WAV e MP3  
 **Bloqueou:**  
-**Próxima semana:**
+Nada  
+**Próxima semana:**  
+Extensão da deteção com 3 novos tipos de evento (energia, espectro, transitório); botões de filtro por tipo na UI
 
 ---
 
 ## Sem. 10 · 12–16 mai
 
 **Feito:**  
+Extensão de `audio_analysis.py` com deteção de variação de energia, mudança espectral e transitórios (onset detection) — 5 tipos de evento no total  
+Botões de filtro interativos no ecrã de análise (filtragem por tipo de evento com anotações no espectrograma)  
+Relatório intercalar corrigido e submetido em `docs/report/`  
 **Bloqueou:**  
-**Próxima semana:**
+Nada  
+**Próxima semana:**  
+Correção de compatibilidade Chrome; refinamento da lógica de filtros; dropdown colapsável de eventos
 
 ---
 
 ## Sem. 11 · 19–23 mai
 
 **Feito:**  
+Correção de representação visual no Chrome (rendering canvas)  
+Lógica de filtros refatorada (estado correto ao activar/desactivar múltiplos filtros)  
+Menu dropdown colapsável para listas de eventos no ecrã de análise  
 **Bloqueou:**  
-**Próxima semana:**
+Nada  
+**Próxima semana:**  
+Vista 3D do espectrograma; otimização do render 2D; animação de fundo
 
 ---
 
 ## Sem. 12 · 26–30 mai
 
 **Feito:**  
+Investigação e prototipagem da vista 3D (Three.js + WebGL); planeamento da arquitectura de render  
 **Bloqueou:**  
-**Próxima semana:**
+Nada  
+**Próxima semana:**  
+Implementação da vista 3D; Web Worker para renderização sem bloqueio; cache do espectrograma em sessionStorage
 
 ---
 
 ## Sem. 13 · 2–6 jun
 
 **Feito:**  
+Vista 3D do espectrograma com Three.js/WebGL (malha de barras, iluminação, controlos de órbita, HUD com navegação)  
+Renderização do espectrograma 2D movida para Web Worker (ArrayBuffer transferável; elimina bloqueio da UI)  
+Cache do espectrograma em `sessionStorage` com chave por ficheiro (evita re-render ao navegar para trás)  
+Animação de notas musicais flutuantes no fundo (canvas fixo, adapta cores ao tema claro/escuro)  
+Correção das cores do espectrograma (overlay de grayscale removido da vista por defeito; mantido apenas no modo de filtro)  
+Remoção do painel de debug de escala de UI  
 **Bloqueou:**  
-**Próxima semana:**
+Nada  
+**Próxima semana:**  
+Relatório final; polimento da UI; preparação da defesa
 
 ---
 
