@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body %}
 
-<div class="device">
+<div class="device is-loading" id="analysis-device">
   <div class="nav-bar">
     <span class="nav-logo">Espectrograma</span>
     <div class="nav-steps">
@@ -13,11 +13,12 @@
     </div>
   </div>
 
-  <div class="content" style="position:relative">
-    <div class="analysis-loading" id="analysis-loading">
-      <div class="analysis-loading-spinner"></div>
-      <span class="analysis-loading-label">A preparar análise…</span>
-    </div>
+  <div class="analysis-loading" id="analysis-loading">
+    <div class="analysis-loading-spinner"></div>
+    <span class="analysis-loading-label">A preparar análise…</span>
+  </div>
+
+  <div class="content analysis-content">
     <div style="margin-bottom:12px">
       <p class="screen-title">{{ filename }}</p>
       <p class="screen-sub" style="margin-bottom:0">
@@ -159,16 +160,14 @@
 
 <script>
 (function () {
-  var cBase = document.getElementById('spec-canvas-base');
+  var cBase    = document.getElementById('spec-canvas-base');
   var cOverlay = document.getElementById('spec-canvas-overlay');
-  var ctxBase = cBase.getContext('2d');
+  var ctxBase    = cBase.getContext('2d');
   var ctxOverlay = cOverlay.getContext('2d');
-  var specBox = document.getElementById('spectrogram-box');
+  var specBox  = document.getElementById('spectrogram-box');
 
-  // Use container width sem devicePixelRatio para evitar  duplicação de escala
   var container = cBase.parentElement;
-  var canvasDisplayWidth = container.offsetWidth;
-  var W = canvasDisplayWidth;
+  var W = container.offsetWidth;
   var H = 360;
   
   cBase.width = W;
@@ -181,15 +180,16 @@
   cOverlay.style.width = W + 'px';
   cOverlay.style.height = H + 'px';
 
-  var specDataStr = '{{ spec_data | safe }}';
+  var specDataStr  = '{{ spec_data | safe }}';
   var specDuration = {{ spec_duration | default(42) }};
-  var specSr = {{ spec_sr | default(44100) }};
-  var useRealData = specDataStr && specDataStr.length > 2;
+  var specSr       = {{ spec_sr | default(44100) }};
+  var useRealData  = specDataStr && specDataStr.length > 2;
 
   var colorImageData = null;
-  var grayImageData = null;
-  var rendered = false;
-  var ALL_FILTERS; // inicializado após filterBtns (derivado do DOM)
+  var grayImageData  = null;
+  var ALL_FILTERS;
+
+  var CACHE_KEY = 'spec_v1_' + {{ filename | tojson }};
   
   // Atualiza eixo X com tempos reais
   var axisX = document.getElementById('spec-axis-x');
@@ -209,22 +209,15 @@
   var axisY = document.getElementById('spec-axis-y');
   if (axisY && specSr && useRealData) {
     try {
-      var specData = JSON.parse(specDataStr);
-      var numFreqBins = specData.length;
-      var nyquist = specSr / 2;
-      
+      var tmpSpec  = JSON.parse(specDataStr);
+      var nyquist  = specSr / 2;
       axisY.innerHTML = '';
-      var freqTicks = [nyquist * 1.0, nyquist * 0.75, nyquist * 0.5, nyquist * 0.25, 0];
-      
-      for (var i = 0; i < freqTicks.length; i++) {
-        var freq = Math.round(freqTicks[i] / 1000);
-        var span = document.createElement('span');
-        span.textContent = freq + ' kHz';
-        axisY.appendChild(span);
-      }
-    } catch (e) {
-      // Mantém valores padrão se houver erro
-    }
+      [nyquist, nyquist * 0.75, nyquist * 0.5, nyquist * 0.25, 0].forEach(function (f) {
+        var s = document.createElement('span');
+        s.textContent = Math.round(f / 1000) + ' kHz';
+        axisY.appendChild(s);
+      });
+    } catch (e) {}
   }
   
   function storeSpectrogramBuffers() {
@@ -257,8 +250,7 @@
   function showDefaultSpectrogramView() {
     if (!colorImageData) return;
     ctxBase.putImageData(colorImageData, 0, 0);
-    cOverlay.style.display = 'block';
-    cOverlay.style.opacity = '0.85';
+    cOverlay.style.display = 'none';
   }
 
   function applySpectrogramEventFilter(activeFilters) {
@@ -300,268 +292,192 @@
     ctxBase.putImageData(displayData, 0, 0);
   }
 
-  if (useRealData) {
+  // Reconstrói ctxOverlay (escala de cinza) a partir de colorImageData
+  function buildOverlay() {
+    var od = ctxOverlay.createImageData(W, H);
+    var s  = colorImageData.data;
+    for (var i = 0; i < s.length; i += 4) {
+      var gray = Math.round(0.299 * s[i] + 0.587 * s[i+1] + 0.114 * s[i+2]);
+      od.data[i] = od.data[i+1] = od.data[i+2] = gray;
+      od.data[i+3] = 255;
+    }
+    ctxOverlay.putImageData(od, 0, 0);
+  }
+
+  // ── Pós-render: filtros, eventos, loader ─────────────────────────────────
+  function onSpecReady() {
+    document.querySelectorAll('.events-list').forEach(function (list) {
+      var rows = Array.from(list.querySelectorAll('.event-row'));
+      if (rows.length <= 1) return;
+      rows.slice(1).forEach(function (row) { row.classList.add('events-collapsed'); });
+      var extra = rows.length - 1;
+      var btn = document.createElement('button');
+      btn.className = 'events-toggle-btn';
+      btn.textContent = 'ver mais (' + extra + ')';
+      btn.dataset.expanded = 'false';
+      btn.addEventListener('click', function () {
+        var exp = this.dataset.expanded === 'true';
+        rows.slice(1).forEach(function (row) { row.classList.toggle('events-collapsed', exp); });
+        this.dataset.expanded = exp ? 'false' : 'true';
+        this.textContent = exp ? 'ver mais (' + extra + ')' : 'ver menos';
+      });
+      list.appendChild(btn);
+    });
+
+    var filterBtns = document.querySelectorAll('.filter-btn');
+    var eventRows  = document.querySelectorAll('.event-row[data-event-type]');
+    ALL_FILTERS = Array.from(filterBtns).map(function (btn) { return btn.dataset.filter; });
+
+    function updateFilters() {
+      var activeFilters = new Set();
+      filterBtns.forEach(function (btn) {
+        if (btn.classList.contains('active')) activeFilters.add(btn.dataset.filter);
+      });
+      applySpectrogramEventFilter(activeFilters);
+      eventRows.forEach(function (row) {
+        row.classList.toggle('dim', !activeFilters.has(row.dataset.eventType));
+      });
+      document.querySelectorAll('.event-group[data-event-type]').forEach(function (group) {
+        group.classList.toggle('dim', !activeFilters.has(group.dataset.eventType));
+      });
+      var otherGroup = document.querySelector('.event-group:not([data-event-type])');
+      if (otherGroup) {
+        var anyVisible = Array.from(otherGroup.querySelectorAll('.event-row[data-event-type]'))
+          .some(function (row) { return !row.classList.contains('dim'); });
+        otherGroup.classList.toggle('dim', !anyVisible);
+      }
+    }
+
+    filterBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var activeCount = document.querySelectorAll('.filter-btn.active').length;
+        if (this.classList.contains('active') && activeCount <= 1) return;
+        this.classList.toggle('active');
+        updateFilters();
+      });
+    });
+
+    showDefaultSpectrogramView();
+    updateFilters();
+
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        var loader = document.getElementById('analysis-loading');
+        var device = document.getElementById('analysis-device');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(function () {
+            loader.style.display = 'none';
+            if (device) device.classList.remove('is-loading');
+          }, 220);
+        }
+      });
+    });
+  }
+
+  // ── Restaurar cache ───────────────────────────────────────────────────────
+  function tryRestoreCache() {
     try {
-      var specData = JSON.parse(specDataStr);
-      var numFreqBins = specData.length;
-      var numTimeBins = specData[0] ? specData[0].length : 0;
-      
-      // Upscaling bilinear 2x para melhor definição
-      var upscaleFactor = 2;
-      var upscaledData = [];
-      
-      // Interpola em frequência e tempo
-      for (var fi = 0; fi < numFreqBins - 1; fi++) {
-        for (var uf = 0; uf < upscaleFactor; uf++) {
-          var tAlpha = uf / upscaleFactor;
-          var freq0 = specData[fi];
-          var freq1 = specData[fi + 1];
-          var interpFreq = [];
-          
-          for (var ti = 0; ti < numTimeBins - 1; ti++) {
-            for (var ut = 0; ut < upscaleFactor; ut++) {
-              var hAlpha = ut / upscaleFactor;
-              var v00 = freq0[ti];
-              var v01 = freq0[ti + 1];
-              var v10 = freq1[ti];
-              var v11 = freq1[ti + 1];
-              var v = (1 - hAlpha - tAlpha + hAlpha * tAlpha) * v00 +
-                      (hAlpha - hAlpha * tAlpha) * v01 +
-                      (tAlpha - hAlpha * tAlpha) * v10 +
-                      (hAlpha * tAlpha) * v11;
-              interpFreq.push(Math.round(v));
+      var cached = sessionStorage.getItem(CACHE_KEY);
+      if (!cached) return false;
+      var img = new Image();
+      img.onload = function () {
+        ctxBase.drawImage(img, 0, 0, W, H);
+        storeSpectrogramBuffers();
+        buildOverlay();
+        onSpecReady();
+      };
+      img.onerror = function () { doFullRender(); };
+      img.src = cached;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ── Web Worker: todo o cálculo fora do main thread ───────────────────────
+  var WORKER_SRC = `
+self.onmessage = function(msg) {
+  var d=msg.data, W=d.W, H=d.H, buf=new Uint8ClampedArray(W*H*4);
+  function pal(v) {
+    v=Math.max(0,Math.min(1,v));
+    var r,g,b,t;
+    if      (v<0.167){t=v/0.167;        r=0;          g=Math.round(100+t*155); b=Math.round(200+t*55);}
+    else if (v<0.333){t=(v-.167)/.167;  r=0;          g=Math.round(255-t*100); b=Math.round(255-t*255);}
+    else if (v<0.5)  {t=(v-.333)/.167;  r=Math.round(t*255); g=255;            b=0;}
+    else if (v<0.667){t=(v-.5)/.167;    r=255;        g=Math.round(255-t*165); b=0;}
+    else if (v<0.833){t=(v-.667)/.167;  r=255;        g=Math.round(90-t*90);   b=0;}
+    else             {t=(v-.833)/.167;  r=255;        g=0; b=Math.round(t*100);}
+    return [r,g,b];
+  }
+  function sp(i,c){buf[i]=c[0];buf[i+1]=c[1];buf[i+2]=c[2];buf[i+3]=255;}
+  var ok=false;
+  if(d.useRealData){
+    try{
+      var sd=JSON.parse(d.spec),nf=sd.length,nt=sd[0]?sd[0].length:0,up=2,ud=[];
+      for(var fi=0;fi<nf-1;fi++){
+        for(var uf=0;uf<up;uf++){
+          var ta=uf/up,f0=sd[fi],f1=sd[fi+1],row=[];
+          for(var ti=0;ti<nt-1;ti++){
+            for(var ut=0;ut<up;ut++){
+              var ha=ut/up;
+              row.push(Math.round((1-ha-ta+ha*ta)*f0[ti]+(ha-ha*ta)*f0[ti+1]+(ta-ha*ta)*f1[ti]+(ha*ta)*f1[ti+1]));
             }
           }
-          // Última coluna
-          interpFreq.push(freq0[numTimeBins - 1]);
-          upscaledData.push(interpFreq);
+          row.push(f0[nt-1]);ud.push(row);
         }
       }
-      // Última linha
-      var lastFreq = [];
-      for (var ti2 = 0; ti2 < numTimeBins - 1; ti2++) {
-        for (var ut2 = 0; ut2 < upscaleFactor; ut2++) {
-          var hAlpha2 = ut2 / upscaleFactor;
-          var v0 = specData[numFreqBins - 1][ti2];
-          var v1 = specData[numFreqBins - 1][ti2 + 1];
-          lastFreq.push(Math.round(v0 * (1 - hAlpha2) + v1 * hAlpha2));
+      var lf=[];
+      for(var ti2=0;ti2<nt-1;ti2++)for(var ut2=0;ut2<up;ut2++){var h2=ut2/up;lf.push(Math.round(sd[nf-1][ti2]*(1-h2)+sd[nf-1][ti2+1]*h2));}
+      lf.push(sd[nf-1][nt-1]);ud.push(lf);
+      sd=ud;nf=sd.length;nt=sd[0]?sd[0].length:0;
+      var fh=H/nf,tw=nt?W/nt:W;
+      for(var fi=0;fi<nf;fi++){
+        var ys=Math.floor((nf-1-fi)*fh),ye=Math.min(H,Math.floor((nf-fi)*fh));
+        for(var ti=0;ti<nt;ti++){
+          var xs=Math.floor(ti*tw),xe=Math.min(W,Math.floor((ti+1)*tw));
+          var c=pal(sd[fi][ti]/255);
+          for(var py=ys;py<ye;py++)for(var px=xs;px<xe;px++)sp((py*W+px)*4,c);
         }
       }
-      lastFreq.push(specData[numFreqBins - 1][numTimeBins - 1]);
-      upscaledData.push(lastFreq);
-      
-      specData = upscaledData;
-      numFreqBins = specData.length;
-      numTimeBins = specData[0] ? specData[0].length : 0;
-      
-      var freqHeight = H / numFreqBins;
-      var timeWidth = numTimeBins ? W / numTimeBins : W;
-      ctxBase.imageSmoothingEnabled = true;
-      ctxOverlay.imageSmoothingEnabled = true;
+      ok=true;
+    }catch(e){}
+  }
+  if(!ok){
+    for(var y=0;y<H;y++)for(var x=0;x<W;x++){
+      var v=Math.random()*.15+Math.sin(x/W*Math.PI*7)*.07+Math.cos(y/H*Math.PI*5)*.05;
+      v+=Math.exp(-Math.pow(y/H-.72,2)*18)*.45*(.5+Math.sin(x/W*Math.PI*14)*.5);
+      v+=Math.exp(-Math.pow(y/H-.42,2)*28)*.22*(.5+Math.cos(x/W*Math.PI*22)*.5);
+      sp((y*W+x)*4,pal(Math.min(1,Math.max(0,v))));
+    }
+  }
+  self.postMessage({buf:buf.buffer},[buf.buffer]);
+};`;
 
-      function palette(value) {
-        var x = Math.max(0, Math.min(1, value));
-        var r, g, b;
-        
-        if (x < 0.167) {
-          var t = x / 0.167;
-          r = 0;
-          g = Math.round(100 + t * 155);
-          b = Math.round(200 + t * 55);
-        } else if (x < 0.333) {
-          var t = (x - 0.167) / 0.167;
-          r = 0;
-          g = Math.round(255 - t * 100);
-          b = Math.round(255 - t * 255);
-        } else if (x < 0.5) {
-          var t = (x - 0.333) / 0.167;
-          r = Math.round(t * 255);
-          g = 255;
-          b = 0;
-        } else if (x < 0.667) {
-          var t = (x - 0.5) / 0.167;
-          r = 255;
-          g = Math.round(255 - t * 165);
-          b = 0;
-        } else if (x < 0.833) {
-          var t = (x - 0.667) / 0.167;
-          r = 255;
-          g = Math.round(90 - t * 90);
-          b = 0;
-        } else {
-          var t = (x - 0.833) / 0.167;
-          r = 255;
-          g = 0;
-          b = Math.round(t * 100);
-        }
-        
-        return {r: r, g: g, b: b};
-      }
-
-      function toGrayscale(colorObj) {
-        var gray = Math.round(0.299 * colorObj.r + 0.587 * colorObj.g + 0.114 * colorObj.b);
-        return 'rgb(' + gray + ', ' + gray + ', ' + gray + ')';
-      }
-
-      for (var fi = 0; fi < numFreqBins; fi++) {
-        var freq = specData[fi];
-        var yPos = (numFreqBins - 1 - fi) * freqHeight;
-        for (var ti = 0; ti < numTimeBins; ti++) {
-          var magnitude = freq[ti] / 255;
-          var colorObj = palette(magnitude);
-          ctxBase.fillStyle = 'rgb(' + colorObj.r + ', ' + colorObj.g + ', ' + colorObj.b + ')';
-          ctxBase.fillRect(ti * timeWidth, yPos, timeWidth, freqHeight);
-        }
-      }
-
+  function doFullRender() {
+    function apply(buf) {
+      ctxBase.putImageData(new ImageData(new Uint8ClampedArray(buf), W, H), 0, 0);
       storeSpectrogramBuffers();
-
-      for (var fi2 = 0; fi2 < numFreqBins; fi2++) {
-        var freq2 = specData[fi2];
-        var yPos2 = (numFreqBins - 1 - fi2) * freqHeight;
-        for (var ti2 = 0; ti2 < numTimeBins; ti2++) {
-          var magnitude2 = freq2[ti2] / 255;
-          var colorObj2 = palette(magnitude2);
-          ctxOverlay.fillStyle = toGrayscale(colorObj2);
-          ctxOverlay.fillRect(ti2 * timeWidth, yPos2, timeWidth, freqHeight);
-        }
-      }
-      ctxOverlay.globalAlpha = 0.85;
-      rendered = true;
-    } catch (e) {
-      console.log('Erro ao renderizar espectrograma, usando simulação:', e);
+      buildOverlay();
+      try { sessionStorage.setItem(CACHE_KEY, cBase.toDataURL('image/png')); } catch(e) {}
+      onSpecReady();
+    }
+    try {
+      var blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
+      var url  = URL.createObjectURL(blob);
+      var wk   = new Worker(url);
+      wk.onmessage = function(e) { URL.revokeObjectURL(url); wk.terminate(); apply(e.data.buf); };
+      wk.onerror   = function()  { URL.revokeObjectURL(url); wk.terminate(); storeSpectrogramBuffers(); buildOverlay(); onSpecReady(); };
+      wk.postMessage({ W: W, H: H, spec: specDataStr, useRealData: useRealData });
+    } catch(e) {
+      storeSpectrogramBuffers(); buildOverlay(); onSpecReady();
     }
   }
 
-  if (!rendered) {
-    ctxBase.fillStyle = '#CCCCCC';
-    ctxBase.fillRect(0, 0, W, H);
-    ctxOverlay.clearRect(0, 0, W, H);
-    for (var x = 0; x < W; x++) {
-      for (var y = 0; y < H; y++) {
-        var v = Math.random() * 0.15 + Math.sin(x / W * Math.PI * 7) * 0.07 + Math.cos(y / H * Math.PI * 5) * 0.05;
-        v += Math.exp(-Math.pow(y / H - 0.72, 2) * 18) * 0.45 * (0.5 + Math.sin(x / W * Math.PI * 14) * 0.5);
-        v += Math.exp(-Math.pow(y / H - 0.42, 2) * 28) * 0.22 * (0.5 + Math.cos(x / W * Math.PI * 22) * 0.5);
-        v = Math.min(1, Math.max(0, v));
-
-        var r, g, b;
-        if (v < 0.167) {
-          var t = v / 0.167;
-          r = 0; g = Math.round(100 + t * 155); b = Math.round(200 + t * 55);
-        } else if (v < 0.333) {
-          var t = (v - 0.167) / 0.167;
-          r = 0; g = Math.round(255 - t * 100); b = Math.round(255 - t * 255);
-        } else if (v < 0.5) {
-          var t = (v - 0.333) / 0.167;
-          r = Math.round(t * 255); g = 255; b = 0;
-        } else if (v < 0.667) {
-          var t = (v - 0.5) / 0.167;
-          r = 255; g = Math.round(255 - t * 165); b = 0;
-        } else if (v < 0.833) {
-          var t = (v - 0.667) / 0.167;
-          r = 255; g = Math.round(90 - t * 90); b = 0;
-        } else {
-          var t = (v - 0.833) / 0.167;
-          r = 255; g = 0; b = Math.round(t * 100);
-        }
-
-        ctxBase.fillStyle = 'rgb(' + Math.round(r) + ', ' + Math.round(g) + ', ' + Math.round(b) + ')';
-        ctxBase.fillRect(x, y, 1, 1);
-
-        var graySim = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
-        ctxOverlay.fillStyle = 'rgb(' + graySim + ', ' + graySim + ', ' + graySim + ')';
-        ctxOverlay.fillRect(x, y, 1, 1);
-      }
-    }
-    ctxOverlay.globalAlpha = 0.85;
-    storeSpectrogramBuffers();
+  // ── Arranque ──────────────────────────────────────────────────────────────
+  if (!tryRestoreCache()) {
+    doFullRender();
   }
-
-  // Listas colapsáveis — mostra só o 1.º item por padrão, expande ao clicar
-  document.querySelectorAll('.events-list').forEach(function (list) {
-    var rows = Array.from(list.querySelectorAll('.event-row'));
-    if (rows.length <= 1) return;
-
-    rows.slice(1).forEach(function (row) { row.classList.add('events-collapsed'); });
-
-    var extra = rows.length - 1;
-    var btn = document.createElement('button');
-    btn.className = 'events-toggle-btn';
-    btn.textContent = 'ver mais (' + extra + ')';
-    btn.dataset.expanded = 'false';
-
-    btn.addEventListener('click', function () {
-      var isExpanded = this.dataset.expanded === 'true';
-      rows.slice(1).forEach(function (row) {
-        row.classList.toggle('events-collapsed', isExpanded);
-      });
-      this.dataset.expanded = isExpanded ? 'false' : 'true';
-      this.textContent = isExpanded
-        ? 'ver mais (' + extra + ')'
-        : 'ver menos';
-    });
-
-    list.appendChild(btn);
-  });
-
-  var filterBtns = document.querySelectorAll('.filter-btn');
-  var eventRows = document.querySelectorAll('.event-row[data-event-type]');
-
-  // Deriva ALL_FILTERS apenas dos botões efectivamente renderizados
-  ALL_FILTERS = Array.from(filterBtns).map(function (btn) { return btn.dataset.filter; });
-
-  function updateFilters() {
-    var activeFilters = new Set();
-    filterBtns.forEach(function (btn) {
-      if (btn.classList.contains('active')) {
-        activeFilters.add(btn.dataset.filter);
-      }
-    });
-
-    applySpectrogramEventFilter(activeFilters);
-
-    // Dim/undim linhas individuais de eventos
-    eventRows.forEach(function (row) {
-      var eventType = row.dataset.eventType;
-      row.classList.toggle('dim', !activeFilters.has(eventType));
-    });
-
-    // Dim/undim cabeçalhos de grupos (silêncio, clipping)
-    document.querySelectorAll('.event-group[data-event-type]').forEach(function (group) {
-      group.classList.toggle('dim', !activeFilters.has(group.dataset.eventType));
-    });
-
-    // Dim do grupo "Outros eventos" se todos os seus tipos estiverem filtrados
-    var otherGroup = document.querySelector('.event-group:not([data-event-type])');
-    if (otherGroup) {
-      var anyVisible = Array.from(otherGroup.querySelectorAll('.event-row[data-event-type]'))
-        .some(function (row) { return !row.classList.contains('dim'); });
-      otherGroup.classList.toggle('dim', !anyVisible);
-    }
-  }
-
-  filterBtns.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var activeCount = document.querySelectorAll('.filter-btn.active').length;
-      if (this.classList.contains('active') && activeCount <= 1) return;
-      this.classList.toggle('active');
-      updateFilters();
-    });
-  });
-
-  showDefaultSpectrogramView();
-  updateFilters();
-
-  // Remove o overlay após o browser ter pintado a frame com o espectrograma
-  requestAnimationFrame(function () {
-    requestAnimationFrame(function () {
-      var loader = document.getElementById('analysis-loading');
-      if (loader) {
-        loader.style.opacity = '0';
-        setTimeout(function () { loader.style.display = 'none'; }, 220);
-      }
-    });
-  });
 })();
 
 </script>
