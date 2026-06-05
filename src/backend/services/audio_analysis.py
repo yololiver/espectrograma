@@ -34,36 +34,29 @@ def process_audio_file(file_path):
         duration = len(y) / sr
         frame_length = 2048
         hop_length = 256
-        top_db = 40
 
-        nonsilent = librosa.effects.split(
-            y,
-            top_db=top_db,
-            frame_length=frame_length,
-            hop_length=hop_length,
+        # Calcula RMS uma vez para silêncio, energia e ruído de fundo
+        rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length)[0]
+
+        # Deteção de silêncio adaptativa: limiar entre o ruído de fundo (p10)
+        # e o nível de sinal típico (p90), independente do ganho da gravação
+        p10 = float(np.percentile(rms, 10)) if len(rms) else 0.0
+        p90 = float(np.percentile(rms, 90)) if len(rms) else 0.0
+        silence_thresh = p10 + (p90 - p10) * 0.15
+
+        is_silent = rms < silence_thresh
+        sil_changes = np.flatnonzero(
+            np.diff(is_silent.astype(int), prepend=0, append=0)
         )
-
         silence_segments = []
-        last_end = 0
-        for start_frame, end_frame in nonsilent:
-            start = last_end / sr
-            end = start_frame / sr
-            if end - start >= 0.12:
+        for i in range(0, len(sil_changes) - 1, 2):
+            s_t = (sil_changes[i]     * hop_length) / sr
+            e_t = min((sil_changes[i + 1] * hop_length) / sr, duration)
+            if e_t - s_t >= 0.12:
                 silence_segments.append({
-                    "start": round(start, 2),
-                    "end": round(end, 2),
-                    "duration": round(end - start, 2),
-                })
-            last_end = end_frame
-
-        if last_end < len(y):
-            start = last_end / sr
-            end = duration
-            if end - start >= 0.12:
-                silence_segments.append({
-                    "start": round(start, 2),
-                    "end": round(end, 2),
-                    "duration": round(end - start, 2),
+                    "start": round(s_t, 2),
+                    "end": round(e_t, 2),
+                    "duration": round(e_t - s_t, 2),
                 })
 
         clip_threshold = 0.9
@@ -99,8 +92,7 @@ def process_audio_file(file_path):
             merged_clipping_segments.append(current)
         clipping_segments = merged_clipping_segments
 
-        rms = librosa.feature.rms(y=y, frame_length=2048, hop_length=hop_length)[0]
-        noise_floor = np.percentile(rms, 10) if len(rms) else 0.0
+        noise_floor = p10
         peak_energy = np.max(rms) if len(rms) else 1e-9
         noise_ratio = noise_floor / max(peak_energy, 1e-9)
         if noise_ratio < 0.015:

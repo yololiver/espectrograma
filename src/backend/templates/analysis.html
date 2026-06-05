@@ -63,34 +63,34 @@
     {% if event_types_present %}
     <div style="margin-bottom: 14px;">
       <div class="section-label">Filtrar eventos</div>
-      <p class="filter-hint">Desactive tipos para escurecer o espectrograma — só os seleccionados mantêm cor.</p>
+      <p class="filter-hint">Seleccione tipos para filtrar o espectrograma — só os seleccionados mantêm cor.</p>
       <div class="event-filters">
         {% if 'silence' in event_types_present %}
-        <button class="filter-btn active filter-silence" data-filter="silence" title="Mostrar silêncios">
+        <button class="filter-btn filter-silence" data-filter="silence" title="Mostrar silêncios">
           <span class="filter-btn-dot" style="background: rgba(0, 100, 200, 0.8);"></span>
           Silêncio
         </button>
         {% endif %}
         {% if 'clip' in event_types_present %}
-        <button class="filter-btn active filter-clip" data-filter="clip" title="Mostrar clipping">
+        <button class="filter-btn filter-clip" data-filter="clip" title="Mostrar clipping">
           <span class="filter-btn-dot" style="background: rgba(255, 0, 0, 0.8);"></span>
           Clipping
         </button>
         {% endif %}
         {% if 'energy' in event_types_present %}
-        <button class="filter-btn active filter-energy" data-filter="energy" title="Mostrar picos de energia">
+        <button class="filter-btn filter-energy" data-filter="energy" title="Mostrar picos de energia">
           <span class="filter-btn-dot" style="background: rgba(255, 100, 0, 0.8);"></span>
           Energia
         </button>
         {% endif %}
         {% if 'spectral' in event_types_present %}
-        <button class="filter-btn active filter-spectral" data-filter="spectral" title="Mostrar mudanças de espectro">
+        <button class="filter-btn filter-spectral" data-filter="spectral" title="Mostrar mudanças de espectro">
           <span class="filter-btn-dot" style="background: rgba(0, 200, 0, 0.8);"></span>
           Espectro
         </button>
         {% endif %}
         {% if 'transient' in event_types_present %}
-        <button class="filter-btn active filter-transient" data-filter="transient" title="Mostrar sons transitórios">
+        <button class="filter-btn filter-transient" data-filter="transient" title="Mostrar sons transitórios">
           <span class="filter-btn-dot" style="background: rgba(255, 200, 0, 0.8);"></span>
           Transitório
         </button>
@@ -256,15 +256,13 @@
   function applySpectrogramEventFilter(activeFilters) {
     if (!colorImageData || !grayImageData) return;
 
-    var allActive = ALL_FILTERS.every(function (t) { return activeFilters.has(t); });
+    var noneActive = activeFilters.size === 0;
     var annotations = document.querySelectorAll('.annotation');
 
-    if (allActive) {
+    if (noneActive) {
       specBox.classList.remove('is-filtering');
       showDefaultSpectrogramView();
-      annotations.forEach(function (ann) {
-        ann.classList.remove('is-visible');
-      });
+      annotations.forEach(function (ann) { ann.classList.remove('is-visible'); });
       return;
     }
 
@@ -334,15 +332,16 @@
         if (btn.classList.contains('active')) activeFilters.add(btn.dataset.filter);
       });
       applySpectrogramEventFilter(activeFilters);
+      var filtering = activeFilters.size > 0;
       eventRows.forEach(function (row) {
-        row.classList.toggle('dim', !activeFilters.has(row.dataset.eventType));
+        row.classList.toggle('dim', filtering && !activeFilters.has(row.dataset.eventType));
       });
       document.querySelectorAll('.event-group[data-event-type]').forEach(function (group) {
-        group.classList.toggle('dim', !activeFilters.has(group.dataset.eventType));
+        group.classList.toggle('dim', filtering && !activeFilters.has(group.dataset.eventType));
       });
       var otherGroup = document.querySelector('.event-group:not([data-event-type])');
       if (otherGroup) {
-        var anyVisible = Array.from(otherGroup.querySelectorAll('.event-row[data-event-type]'))
+        var anyVisible = !filtering || Array.from(otherGroup.querySelectorAll('.event-row[data-event-type]'))
           .some(function (row) { return !row.classList.contains('dim'); });
         otherGroup.classList.toggle('dim', !anyVisible);
       }
@@ -350,8 +349,6 @@
 
     filterBtns.forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var activeCount = document.querySelectorAll('.filter-btn.active').length;
-        if (this.classList.contains('active') && activeCount <= 1) return;
         this.classList.toggle('active');
         updateFilters();
       });
