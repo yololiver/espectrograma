@@ -102,43 +102,61 @@ def process_audio_file(file_path):
         else:
             background_noise = "alto"
 
-        energy_segments = []
-        for i in range(1, len(rms)):
-            if rms[i] > 2 * rms[i - 1] and rms[i] > 0.05:
-                start = (i * hop_length) / sr
-                end = min((i + 1) * hop_length / sr, duration)
-                if end - start >= 0.01:
-                    energy_segments.append({
-                        "start": round(start, 2),
-                        "end": round(end, 2),
-                        "duration": round(end - start, 2),
-                    })
+        def _merge(segs, gap=0.15, min_dur=0.08):
+            """Agrupa segmentos próximos e impõe duração mínima visível."""
+            if not segs:
+                return []
+            segs = sorted(segs, key=lambda s: s["start"])
+            out = [dict(segs[0])]
+            for s in segs[1:]:
+                if s["start"] - out[-1]["end"] <= gap:
+                    out[-1]["end"] = max(out[-1]["end"], s["end"])
+                    out[-1]["duration"] = round(out[-1]["end"] - out[-1]["start"], 2)
+                else:
+                    out.append(dict(s))
+            for s in out:
+                if s["end"] - s["start"] < min_dur:
+                    s["end"] = round(min(s["start"] + min_dur, duration), 2)
+                    s["duration"] = round(s["end"] - s["start"], 2)
+            return out
+
+        # Limiar adaptativo: acima de 35% do intervalo dinâmico
+        energy_thresh = p10 + (p90 - p10) * 0.35
+        n = min(len(rms), len(is_silent))
+        raw = []
+        for i in range(1, n):
+            if rms[i] > 2.5 * rms[i - 1] and rms[i] > energy_thresh and not is_silent[i]:
+                s = (i * hop_length) / sr
+                e = min((i + 2) * hop_length / sr, duration)
+                raw.append({"start": round(s, 2), "end": round(e, 2), "duration": round(e - s, 2)})
+        energy_segments = _merge(raw, gap=0.2, min_dur=0.08)
 
         centroid = librosa.feature.spectral_centroid(
             y=y, sr=sr, n_fft=4096, hop_length=hop_length
         )[0]
-        spectral_segments = []
-        for i in range(1, len(centroid)):
-            if abs(centroid[i] - centroid[i - 1]) > 1500:
-                start = (i * hop_length) / sr
-                end = min((i + 1) * hop_length / sr, duration)
-                if end - start >= 0.01:
-                    spectral_segments.append({
-                        "start": round(start, 2),
-                        "end": round(end, 2),
-                        "duration": round(end - start, 2),
-                    })
+        nc = min(len(centroid), len(is_silent))
+        # Limiar adaptativo baseado no desvio-padrão do centróide em frames não-silenciosas
+        active_mask = ~is_silent[:nc]
+        centroid_std = float(np.std(centroid[:nc][active_mask])) if active_mask.any() else 1500.0
+        spectral_thresh = max(800.0, centroid_std * 1.5)
+        raw = []
+        for i in range(1, nc):
+            # Ignora transições que envolvam frames silenciosas (centróide aí é ruído)
+            if is_silent[i] or is_silent[i - 1]:
+                continue
+            if abs(centroid[i] - centroid[i - 1]) > spectral_thresh:
+                s = (i * hop_length) / sr
+                e = min((i + 2) * hop_length / sr, duration)
+                raw.append({"start": round(s, 2), "end": round(e, 2), "duration": round(e - s, 2)})
+        spectral_segments = _merge(raw, gap=0.2, min_dur=0.08)
 
         onset_frames = librosa.onset.onset_detect(y=y, sr=sr, hop_length=hop_length)
-        transient_segments = []
+        raw = []
         for frame in onset_frames:
-            start = (frame * hop_length) / sr
-            end = min(start + 0.1, duration)
-            transient_segments.append({
-                "start": round(start, 2),
-                "end": round(end, 2),
-                "duration": round(end - start, 2),
-            })
+            s = (frame * hop_length) / sr
+            e = min(s + 0.1, duration)
+            raw.append({"start": round(s, 2), "end": round(e, 2), "duration": round(e - s, 2)})
+        transient_segments = _merge(raw, gap=0.05, min_dur=0.08)
 
         D = librosa.stft(y, n_fft=4096, hop_length=hop_length)
         power = np.abs(D) ** 2
