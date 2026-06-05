@@ -122,6 +122,27 @@ def analysis():
     )
 
 
+@main_bp.route("/analise/3d")
+def analysis_3d():
+    filename, file_path = _get_uploaded_file_path()
+    if not filename:
+        return redirect(url_for("main.upload"))
+    if not file_path:
+        return redirect(url_for("main.upload"))
+
+    spec_data = process_audio_file(file_path)
+    if not spec_data:
+        return redirect(url_for("main.analysis"))
+
+    return render_template(
+        "analysis_3d.html",
+        filename=filename,
+        spec_data=json.dumps(spec_data["spec"]),
+        spec_duration=spec_data["duration"],
+        spec_sr=spec_data["sample_rate"],
+    )
+
+
 @main_bp.route("/feedback")
 def feedback():
     filename, file_path = _get_uploaded_file_path()

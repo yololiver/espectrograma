@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D — {{ filename }}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #080810; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    #c3d { display: block; }
+
+    /* Loading */
+    #loading {
+      position: fixed; inset: 0; background: #080810; z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      transition: opacity 0.3s ease;
+    }
+    .ld-spinner {
+      width: 28px; height: 28px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-top-color: #7C73E6;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .ld-text { font-size: 12px; color: rgba(255,255,255,0.3); }
+
+    /* HUD */
+    .hud {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      background: linear-gradient(to bottom, rgba(8,8,16,0.9) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    .hud-left  { display: flex; align-items: center; gap: 10px; overflow: hidden; }
+    .hud-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .hud-title {
+      font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.65);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .hud-badge {
+      font-size: 10px; padding: 2px 8px; border-radius: 99px; white-space: nowrap;
+      background: rgba(124,115,230,0.2); border: 0.5px solid rgba(124,115,230,0.4);
+      color: rgba(180,175,255,0.9); pointer-events: none;
+    }
+    .hud-btn {
+      pointer-events: all;
+      padding: 5px 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.07); backdrop-filter: blur(8px);
+      border: 0.5px solid rgba(255,255,255,0.13); color: rgba(255,255,255,0.65);
+      font-size: 11px; font-weight: 500; cursor: pointer; text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .hud-btn:hover { background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.9); }
+    .hud-btn.active { background: rgba(124,115,230,0.25); border-color: rgba(124,115,230,0.5); color: rgba(180,175,255,0.9); }
+
+    /* Controls hint */
+    .hint {
+      position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; color: rgba(255,255,255,0.2); white-space: nowrap;
+      z-index: 10; pointer-events: none; letter-spacing: 0.02em;
+    }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="ld-spinner"></div>
+  <span class="ld-text">A construir espectrograma 3D…</span>
+</div>
+
+<canvas id="c3d"></canvas>
+
+<div class="hud">
+  <div class="hud-left">
+    <span class="hud-title">{{ filename }}</span>
+    <span class="hud-badge">3D</span>
+  </div>
+  <div class="hud-right">
+    <button class="hud-btn" id="btn-wireframe">wireframe</button>
+    <a href="{{ url_for('main.analysis') }}" class="hud-btn">← análise 2D</a>
+  </div>
+</div>
+
+<span class="hint">Arrastar para rodar &nbsp;·&nbsp; Scroll para zoom &nbsp;·&nbsp; Clique direito para mover</span>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Dados do espectrograma ────────────────────────────────────────────────
+const specDataStr = '{{ spec_data | safe }}';
+const specDuration = {{ spec_duration | default(0) }};
+const specSr      = {{ spec_sr      | default(44100) }};
+
+let raw;
+try { raw = JSON.parse(specDataStr); }
+catch (e) { console.error('Erro ao carregar espectrograma:', e); }
+
+// ── Downsample para GPU (máx 256 freq × 512 time) ────────────────────────
+function downsample(data, maxR, maxC) {
+  const nR = data.length, nC = data[0]?.length ?? 0;
+  const sR = Math.max(1, Math.ceil(nR / maxR));
+  const sC = Math.max(1, Math.ceil(nC / maxC));
+  const out = [];
+  for (let r = 0; r < nR; r += sR) {
+    const row = [];
+    for (let c = 0; c < nC; c += sC) row.push(data[r][c]);
+    out.push(row);
+  }
+  return out;
+}
+
+raw = downsample(raw, 256, 512);
+const nF = raw.length;
+const nT = raw[0]?.length ?? 0;
+
+// ── Paleta (idêntica à 2D) ────────────────────────────────────────────────
+function palette(x) {
+  x = Math.max(0, Math.min(1, x));
+  let r, g, b;
+  if      (x < 0.167) { const t=x/0.167;           r=0;                g=Math.round(100+t*155); b=Math.round(200+t*55);  }
+  else if (x < 0.333) { const t=(x-0.167)/0.167;   r=0;                g=Math.round(255-t*100); b=Math.round(255-t*255); }
+  else if (x < 0.5)   { const t=(x-0.333)/0.167;   r=Math.round(t*255);g=255;                   b=0;                     }
+  else if (x < 0.667) { const t=(x-0.5)/0.167;     r=255;              g=Math.round(255-t*165); b=0;                     }
+  else if (x < 0.833) { const t=(x-0.667)/0.167;   r=255;              g=Math.round(90-t*90);   b=0;                     }
+  else                 { const t=(x-0.833)/0.167;   r=255;              g=0;                     b=Math.round(t*100);     }
+  return { r: r/255, g: g/255, b: b/255 };
+}
+
+// ── Three.js ──────────────────────────────────────────────────────────────
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x080810);
+scene.fog        = new THREE.FogExp2(0x080810, 0.0035);
+
+const W = window.innerWidth, H = window.innerHeight;
+const camera = new THREE.PerspectiveCamera(52, W / H, 0.1, 2000);
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c3d'), antialias: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping  = true;
+controls.dampingFactor  = 0.07;
+controls.minDistance    = 10;
+controls.maxDistance    = 400;
+controls.maxPolarAngle  = Math.PI / 1.85;
+
+// Iluminação
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(60, 120, 60);
+scene.add(sun);
+
+// ── Geometria do espectrograma ────────────────────────────────────────────
+// Dimensões da cena (unidades Three.js)
+const MX = 100;   // eixo do tempo (X)
+const MZ = 60;    // eixo da frequência (Z)
+const MY = 28;    // altura máxima (amplitude)
+
+const geo = new THREE.PlaneGeometry(MX, MZ, nT - 1, nF - 1);
+geo.rotateX(-Math.PI / 2);   // coloca o plano na horizontal (XZ)
+
+const pos = geo.attributes.position.array;
+const col = new Float32Array(pos.length);
+
+/*
+ * Após rotateX(-PI/2):
+ *   pos[i*3+0] = X  (tempo, de −MX/2 a MX/2)
+ *   pos[i*3+1] = Y  (altura, inicialmente 0)  ← é aqui que colocamos a amplitude
+ *   pos[i*3+2] = Z  (frequência, de −MZ/2 a MZ/2 conforme row 0→nF-1)
+ *
+ * raw[r][c]: r=0 → freq mais alta (z'=−MZ/2, fundo), r=nF-1 → freq mais baixa (z'=MZ/2, frente)
+ */
+for (let r = 0; r < nF; r++) {
+  for (let c = 0; c < nT; c++) {
+    const i   = (r * nT + c) * 3;
+    const v   = (raw[r]?.[c] ?? 0) / 255;
+    pos[i + 1] = v * MY;
+    const { r: cr, g: cg, b: cb } = palette(v);
+    col[i] = cr; col[i + 1] = cg; col[i + 2] = cb;
+  }
+}
+
+geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+geo.attributes.position.needsUpdate = true;
+geo.computeVertexNormals();
+
+const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+const mesh = new THREE.Mesh(geo, mat);
+scene.add(mesh);
+
+// Malha wireframe (desativada por padrão)
+const matWire = new THREE.MeshBasicMaterial({ color: 0x3a3860, wireframe: true, transparent: true, opacity: 0.18 });
+const meshWire = new THREE.Mesh(geo, matWire);
+meshWire.visible = false;
+scene.add(meshWire);
+
+// Grid de chão
+const gridSize = Math.max(MX, MZ) * 1.6;
+const grid = new THREE.GridHelper(gridSize, 24, 0x1c1c30, 0x12121e);
+grid.position.y = -0.5;
+scene.add(grid);
+
+// ── Câmara inicial ────────────────────────────────────────────────────────
+const target = new THREE.Vector3(0, MY * 0.25, 0);
+camera.position.set(0, MY * 1.6, MZ * 1.9);
+camera.lookAt(target);
+controls.target.copy(target);
+controls.update();
+
+// ── Wireframe toggle ──────────────────────────────────────────────────────
+document.getElementById('btn-wireframe').addEventListener('click', function () {
+  meshWire.visible = !meshWire.visible;
+  this.classList.toggle('active', meshWire.visible);
+});
+
+// ── Resize ────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Loop de renderização ──────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// Remove loading e inicia render após primeiro frame estar pintado
+requestAnimationFrame(() => requestAnimationFrame(() => {
+  const loader = document.getElementById('loading');
+  loader.style.opacity = '0';
+  setTimeout(() => { loader.style.display = 'none'; }, 300);
+  animate();
+}));
+
+</script>
+</body>
+</html>
