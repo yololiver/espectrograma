@@ -28,7 +28,7 @@
 - [x] Anotação visual de eventos — ≥ 3 tipos com cores distintas no espectrograma/timeline
 - [x] Feedback automático em linguagem simples — ≥ 3 observações sem termos técnicos
 - [x] Interface web utilizável — fluxo completo (upload → análise → feedback)
-- [ ] Todas as funcionalidades do MVP — implementação prevista para as semanas 5–12 conforme calendário
+- [x] Todas as funcionalidades do MVP — implementação prevista para as semanas 5–12 conforme calendário
 
 ---
 
