@@ -60,6 +60,16 @@
       <div class="legend-item"><div class="legend-dot" style="background:#FF0000"></div>pico máximo</div>
     </div>
 
+    <div id="audio-player" style="display:flex;align-items:center;gap:10px;margin:8px 0 12px;padding:8px 12px;background:rgba(255,255,255,0.06);border-radius:8px;border:1px solid rgba(255,255,255,0.1);">
+      <button id="audio-play-btn" class="filter-btn" aria-label="Reproduzir" style="flex-shrink:0;">▶ reproduzir</button>
+      <span id="audio-current" style="font-size:12px;color:#94a3b8;min-width:36px;font-variant-numeric:tabular-nums;">0:00</span>
+      <div id="audio-track" style="flex:1;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;cursor:pointer;position:relative;">
+        <div id="audio-fill" style="width:0%;height:100%;background:#6366f1;border-radius:2px;pointer-events:none;"></div>
+      </div>
+      <span id="audio-total" style="font-size:12px;color:#94a3b8;min-width:36px;text-align:right;font-variant-numeric:tabular-nums;">—:——</span>
+      <audio id="audio-element" src="{{ url_for('main.audio') }}" preload="metadata"></audio>
+    </div>
+
     {% if event_types_present %}
     <div style="margin-bottom: 14px;">
       <div class="section-label">Filtrar eventos</div>
@@ -322,7 +332,7 @@
       list.appendChild(btn);
     });
 
-    var filterBtns = document.querySelectorAll('.filter-btn');
+    var filterBtns = document.querySelectorAll('.event-filters .filter-btn');
     var eventRows  = document.querySelectorAll('.event-row[data-event-type]');
     ALL_FILTERS = Array.from(filterBtns).map(function (btn) { return btn.dataset.filter; });
 
@@ -475,6 +485,49 @@ self.onmessage = function(msg) {
   if (!tryRestoreCache()) {
     doFullRender();
   }
+})();
+
+(function () {
+  var audio   = document.getElementById('audio-element');
+  var playBtn = document.getElementById('audio-play-btn');
+  var fill    = document.getElementById('audio-fill');
+  var track   = document.getElementById('audio-track');
+  var cur     = document.getElementById('audio-current');
+  var tot     = document.getElementById('audio-total');
+
+  function fmt(s) {
+    var m = Math.floor(s / 60);
+    return m + ':' + (Math.floor(s % 60) < 10 ? '0' : '') + Math.floor(s % 60);
+  }
+
+  audio.addEventListener('loadedmetadata', function () { tot.textContent = fmt(audio.duration); });
+  function setPlaying(playing) {
+    if (playing) {
+      playBtn.textContent = '⏸ pausar';
+      playBtn.style.background = 'rgba(99,102,241,0.15)';
+      playBtn.style.color = '#818cf8';
+      playBtn.style.borderColor = 'rgba(99,102,241,0.5)';
+    } else {
+      playBtn.textContent = '▶ reproduzir';
+      playBtn.style.background = '';
+      playBtn.style.color = '';
+      playBtn.style.borderColor = '';
+    }
+  }
+  audio.addEventListener('ended',      function () { setPlaying(false); });
+  audio.addEventListener('timeupdate', function () {
+    cur.textContent = fmt(audio.currentTime);
+    fill.style.width = (audio.duration ? audio.currentTime / audio.duration * 100 : 0) + '%';
+  });
+  playBtn.addEventListener('click', function () {
+    if (audio.paused) { audio.play();  setPlaying(true);  }
+    else              { audio.pause(); setPlaying(false); }
+  });
+  track.addEventListener('click', function (e) {
+    if (!audio.duration) return;
+    var r = track.getBoundingClientRect();
+    audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
+  });
 })();
 
 </script>

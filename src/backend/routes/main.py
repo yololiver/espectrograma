@@ -11,6 +11,7 @@ from flask import (
     session,
     current_app,
     jsonify,
+    send_file,
 )
 from werkzeug.utils import secure_filename
 
@@ -176,6 +177,14 @@ def feedback():
     response = make_response(html)
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return response
+
+
+@main_bp.route("/audio")
+def audio():
+    filename, file_path = _get_uploaded_file_path()
+    if not file_path:
+        return "", 404
+    return send_file(file_path)
 
 
 @main_bp.route("/reset")
