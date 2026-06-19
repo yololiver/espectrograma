@@ -79,7 +79,7 @@
   </div>
   <div class="hud-right">
     <button class="hud-btn" id="btn-wireframe">wireframe</button>
-    <a href="{{ url_for('main.analysis') }}" class="hud-btn">← análise 2D</a>
+    <a href="{{ url_analysis | default(url_for('main.analysis')) }}" class="hud-btn">← análise 2D</a>
   </div>
 </div>
 

@@ -243,6 +243,7 @@ def demo_3d():
         spec_data=json.dumps(spec_data["spec"]),
         spec_duration=spec_data["duration"],
         spec_sr=spec_data["sample_rate"],
+        url_analysis=url_for("main.demo"),
     )
 
 
