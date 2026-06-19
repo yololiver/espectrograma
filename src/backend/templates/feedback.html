@@ -61,8 +61,8 @@
     </div>
 
     <div class="row-btns">
-      <a href="{{ url_for('main.analysis') }}" class="btn-accent">ver espectrograma →</a>
-      <a href="{{ url_for('main.reset') }}" class="btn-secondary">novo ficheiro</a>
+      <a href="{{ url_analysis | default(url_for('main.analysis')) }}" class="btn-accent">ver espectrograma →</a>
+      <a href="{{ url_reset | default(url_for('main.reset')) }}" class="btn-secondary">novo ficheiro</a>
     </div>
   </div>
 </div>

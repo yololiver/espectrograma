@@ -187,16 +187,21 @@ def audio():
     return send_file(file_path)
 
 
-@main_bp.route("/demo")
-def demo():
+def _load_demo_spec():
     demo_json = os.path.join(
         os.path.dirname(current_app.root_path), "backend", "static", "demo", "demo_result.json"
     )
     if not os.path.exists(demo_json):
-        return "Ficheiro de demo não encontrado. Corre scripts/generate_demo.py primeiro.", 404
-
+        return None
     with open(demo_json, encoding="utf-8") as f:
-        spec_data = json.load(f)
+        return json.load(f)
+
+
+@main_bp.route("/demo")
+def demo():
+    spec_data = _load_demo_spec()
+    if not spec_data:
+        return "Ficheiro de demo não encontrado. Corre scripts/generate_demo.py primeiro.", 404
 
     events = spec_data.get("events", [])
     silence_events = [ev for ev in events if ev.get("type") == "silence"]
@@ -220,7 +225,52 @@ def demo():
         background_noise=spec_data.get("background_noise", "desconhecido"),
         event_types_present={ev.get("type") for ev in events},
         audio_url=url_for("main.demo_audio"),
+        url_3d=url_for("main.demo_3d"),
+        url_feedback=url_for("main.demo_feedback"),
+        url_reset=url_for("main.upload"),
     )
+
+
+@main_bp.route("/demo/3d")
+def demo_3d():
+    spec_data = _load_demo_spec()
+    if not spec_data:
+        return redirect(url_for("main.demo"))
+
+    return render_template(
+        "analysis_3d.html",
+        filename="demo — soundreality-intro-noise.mp3",
+        spec_data=json.dumps(spec_data["spec"]),
+        spec_duration=spec_data["duration"],
+        spec_sr=spec_data["sample_rate"],
+    )
+
+
+@main_bp.route("/demo/feedback")
+def demo_feedback():
+    spec_data = _load_demo_spec()
+    if not spec_data:
+        return redirect(url_for("main.demo"))
+
+    summary = build_analysis_summary(spec_data)
+    feedback_data = generate_feedback(summary)
+
+    html = render_template(
+        "feedback.html",
+        filename="demo — soundreality-intro-noise.mp3",
+        size_mb="0.1",
+        noise_level=feedback_data["noise_level"],
+        noise_pill_class=feedback_data["noise_pill_class"],
+        feedback_items=feedback_data["feedback_items"],
+        stats=feedback_data["stats"],
+        highlights=feedback_data["highlights"],
+        verdict=feedback_data["verdict"],
+        url_analysis=url_for("main.demo"),
+        url_reset=url_for("main.upload"),
+    )
+    response = make_response(html)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return response
 
 
 @main_bp.route("/demo/audio")

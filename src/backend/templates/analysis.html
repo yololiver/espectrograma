@@ -161,9 +161,9 @@
     {% endif %}
 
     <div class="row-btns">
-      <a href="{{ url_for('main.reset') }}" class="btn-secondary">← novo ficheiro</a>
-      <a href="{{ url_for('main.analysis_3d') }}" class="btn-secondary">⬡ ver em 3D</a>
-      <a href="{{ url_for('main.feedback') }}" class="btn-accent">ver feedback →</a>
+      <a href="{{ url_reset | default(url_for('main.reset')) }}" class="btn-secondary">← novo ficheiro</a>
+      <a href="{{ url_3d | default(url_for('main.analysis_3d')) }}" class="btn-secondary">⬡ ver em 3D</a>
+      <a href="{{ url_feedback | default(url_for('main.feedback')) }}" class="btn-accent">ver feedback →</a>
     </div>
   </div>
 </div>
