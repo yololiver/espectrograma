@@ -6,7 +6,12 @@
       "Bash(pip install *)",
       "Bash(python -m playwright install chromium -q)",
       "Bash(python -m playwright install chromium)",
-      "Bash(curl -s http://127.0.0.1:5000/)"
+      "Bash(curl -s http://127.0.0.1:5000/)",
+      "Bash(venv\\\\Scripts\\\\python.exe -m pytest tests/ -v)",
+      "Bash(mkdir -p \"C:/Users/big_b/.claude/projects/c--Users-big-b-Desktop-repos-espectrograma/memory\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\big_b\\.claude\\projects\\c--Users-big-b-Desktop-repos-espectrograma"
     ]
   }
 }

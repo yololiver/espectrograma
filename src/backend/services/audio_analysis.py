@@ -59,23 +59,23 @@ def process_audio_file(file_path):
                     "duration": round(e_t - s_t, 2),
                 })
 
-        clip_threshold = 0.9
+        # Clipping real = flat-top: amostras consecutivas encostadas ao full-scale
+        # Um seno limpo a 0.95 nunca atinge 0.99 → sem falsos positivos de amplitude alta
+        clip_threshold = 0.99
+        clip_min_run = 3  # mínimo de amostras consecutivas a full-scale
+
         clipping_mask = np.abs(y) >= clip_threshold
         clipping_segments = []
         if clipping_mask.any():
-            clip_changes = np.flatnonzero(
-                np.diff(clipping_mask.astype(int), prepend=0, append=0)
-            )
-            for i in range(0, len(clip_changes), 2):
-                start_sample = clip_changes[i]
-                end_sample = clip_changes[i + 1]
-                start = start_sample / sr
-                end = end_sample / sr
-                if end - start >= 0.0001:
+            changes = np.diff(clipping_mask.astype(np.int8), prepend=0, append=0)
+            run_starts = np.where(changes == 1)[0]
+            run_ends = np.where(changes == -1)[0]
+            for s, e in zip(run_starts, run_ends):
+                if e - s >= clip_min_run:
                     clipping_segments.append({
-                        "start": round(start, 2),
-                        "end": round(end, 2),
-                        "duration": round(end - start, 2),
+                        "start": round(s / sr, 2),
+                        "end": round(e / sr, 2),
+                        "duration": round((e - s) / sr, 2),
                     })
 
         merged_clipping_segments = []
@@ -92,12 +92,25 @@ def process_audio_file(file_path):
             merged_clipping_segments.append(current)
         clipping_segments = merged_clipping_segments
 
-        noise_floor = p10
-        peak_energy = np.max(rms) if len(rms) else 1e-9
-        noise_ratio = noise_floor / max(peak_energy, 1e-9)
-        if noise_ratio < 0.015:
+        # Ruído de fundo: piso absoluto em dBFS, com controlo de gama dinâmica.
+        # A razão p10/max era cientificamente frágil: um tom limpo e constante dá
+        # ratio ≈ 1.0 e seria sempre classificado como "alto". Em vez disso:
+        #   1. Mede o piso em dBFS (limiar inferior independente do ganho da gravação).
+        #   2. Só classifica se a gama dinâmica for ≥ 6 dB, ou seja, se existirem
+        #      momentos quietos que permitam distinguir o piso do sinal principal.
+        #   3. Se a gama for < 6 dB (e.g. tom contínuo sem pausas), não é possível
+        #      separar ruído de sinal → "desconhecido".
+        noise_floor_rms = p10
+        noise_floor_dbfs = 20.0 * np.log10(max(float(noise_floor_rms), 1e-9))
+        peak_rms = float(np.percentile(rms, 90)) if len(rms) else 1e-9
+        peak_dbfs = 20.0 * np.log10(max(peak_rms, 1e-9))
+        dynamic_range_db = peak_dbfs - noise_floor_dbfs
+
+        if dynamic_range_db < 6.0:
+            background_noise = "desconhecido"
+        elif noise_floor_dbfs < -50.0:
             background_noise = "baixo"
-        elif noise_ratio < 0.05:
+        elif noise_floor_dbfs < -35.0:
             background_noise = "moderado"
         else:
             background_noise = "alto"

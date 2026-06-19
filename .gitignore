@@ -30,6 +30,7 @@ src/uploads/
 # IDEs
 .vscode/
 .idea/
+.claude/
 
 # OS files
 .DS_Store

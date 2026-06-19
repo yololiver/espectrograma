@@ -40,9 +40,14 @@ def tone_wav(tmp_wav_factory, sample_rate):
 
 @pytest.fixture
 def clipped_wav(tmp_wav_factory, sample_rate):
-    """Tom com pico saturado."""
+    """Tom com pausa de silêncio e saturação real (flat-top consecutivo a 1.0).
+
+    A pausa permite ao algoritmo de ruído distinguir piso de sinal;
+    o flat-top de 50 ms (≫ 3 amostras) representa clipping real, não sinal alto limpo.
+    """
     sr = sample_rate
-    t = np.linspace(0, 1.0, int(1.0 * sr), endpoint=False)
+    t = np.linspace(0, 2.0, int(2.0 * sr), endpoint=False)
     y = 0.5 * np.sin(2 * np.pi * 220 * t)
-    y[int(0.5 * sr) : int(0.55 * sr)] = 1.0
+    y[int(0.3 * sr) : int(0.6 * sr)] = 0.0          # pausa de silêncio
+    y[int(1.0 * sr) : int(1.05 * sr)] = 1.0          # saturação real: flat-top 50 ms
     return tmp_wav_factory("clipped.wav", y, sr)
