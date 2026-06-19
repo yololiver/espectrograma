@@ -187,6 +187,52 @@ def audio():
     return send_file(file_path)
 
 
+@main_bp.route("/demo")
+def demo():
+    demo_json = os.path.join(
+        os.path.dirname(current_app.root_path), "backend", "static", "demo", "demo_result.json"
+    )
+    if not os.path.exists(demo_json):
+        return "Ficheiro de demo não encontrado. Corre scripts/generate_demo.py primeiro.", 404
+
+    with open(demo_json, encoding="utf-8") as f:
+        spec_data = json.load(f)
+
+    events = spec_data.get("events", [])
+    silence_events = [ev for ev in events if ev.get("type") == "silence"]
+    clipping_events = [ev for ev in events if ev.get("type") == "clip"]
+    other_events = [ev for ev in events if ev.get("type") not in {"silence", "clip"}]
+
+    return render_template(
+        "analysis.html",
+        filename="demo — soundreality-intro-noise.mp3",
+        duration=f"{spec_data['duration']:.1f} s",
+        sample_rate=f"{spec_data['sample_rate']} Hz",
+        channels="mono",
+        spec_data=json.dumps(spec_data["spec"]),
+        spec_duration=spec_data["duration"],
+        spec_sr=spec_data["sample_rate"],
+        annotations=spec_data.get("annotations", []),
+        silence_events=silence_events,
+        clipping_events=clipping_events,
+        other_events=other_events,
+        has_clipping=bool(clipping_events),
+        background_noise=spec_data.get("background_noise", "desconhecido"),
+        event_types_present={ev.get("type") for ev in events},
+        audio_url=url_for("main.demo_audio"),
+    )
+
+
+@main_bp.route("/demo/audio")
+def demo_audio():
+    audio_path = os.path.join(
+        os.path.dirname(current_app.root_path), "backend", "static", "demo", "demo_audio.mp3"
+    )
+    if not os.path.exists(audio_path):
+        return "", 404
+    return send_file(audio_path)
+
+
 @main_bp.route("/reset")
 def reset():
     filename = session.get("filename")
