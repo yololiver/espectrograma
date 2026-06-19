@@ -100,19 +100,6 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-## Decisões de arquitectura principais
-
-| Decisão | Alternativa considerada | Razão da escolha |
-|---------|------------------------|-----------------|
-| Flask (backend + UI) | FastAPI + SPA separado | Monólito simples: rotas, templates Jinja2 e sessão num único processo |
-| Templates Jinja2 + Canvas | React + Vite | Menos complexidade de integração no MVP; espectrograma renderizado em `<canvas>` com dados do servidor |
-| librosa (processamento de áudio) | essentia, torchaudio | API de alto nível orientada a análise; documentação extensa; não requer GPU |
-| Espectrograma via Canvas API | biblioteca de charting (Chart.js, Plotly) | Controlo total sobre a renderização e anotação visual sem dependências adicionais |
-| Serviços em `backend/services/` | Toda a lógica nas rotas | Separação entre HTTP e análise/feedback; facilita testes com pytest |
-
----
-
-## Referências e IA utilizada
 
 ### Referências técnicas
 
