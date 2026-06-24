@@ -202,7 +202,7 @@ const mesh = new THREE.Mesh(geo, mat);
 scene.add(mesh);
 
 // Malha wireframe (desativada por padrão)
-const matWire = new THREE.MeshBasicMaterial({ color: 0x3a3860, wireframe: true, transparent: true, opacity: 0.18 });
+const matWire = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, wireframe: true, transparent: true, opacity: 0.18 });
 const meshWire = new THREE.Mesh(geo, matWire);
 meshWire.visible = false;
 scene.add(meshWire);
@@ -223,6 +223,7 @@ controls.update();
 // ── Wireframe toggle ──────────────────────────────────────────────────────
 document.getElementById('btn-wireframe').addEventListener('click', function () {
   meshWire.visible = !meshWire.visible;
+  mesh.visible = !meshWire.visible;
   this.classList.toggle('active', meshWire.visible);
 });
 
